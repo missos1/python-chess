@@ -13,6 +13,7 @@ class Bishop(Piece):
 		self.notation = 'B'
 
 
+
 	def get_possible_moves(self, board):
 		output = []
 
