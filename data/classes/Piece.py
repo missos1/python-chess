@@ -1,5 +1,7 @@
 import pygame
 
+from data.classes.move import Move
+
 class Piece:
 	def __init__(self, pos, color, board):
 		self.pos = pos
@@ -14,38 +16,50 @@ class Piece:
 			i.highlight = False
 
 		if square in self.get_valid_moves(board) or force:
-			prev_square = board.get_square_from_pos(self.pos)
-			self.pos, self.x, self.y = square.pos, square.x, square.y
-
-			prev_square.occupying_piece = None
-			square.occupying_piece = self
-			board.selected_piece = None
-			self.has_moved = True
-
-			# Pawn promotion
-			if self.notation == ' ':
-				if self.y == 0 or self.y == 7:
-					from data.classes.pieces.Queen import Queen
-					square.occupying_piece = Queen(
-						(self.x, self.y),
-						self.color,
-						board
-					)
-
-			# Move rook if king castles
-			if self.notation == 'K':
-				if prev_square.x - self.x == 2:
-					rook = board.get_piece_from_pos((0, self.y))
-					rook.move(board, board.get_square_from_pos((3, self.y)), force=True)
-				elif prev_square.x - self.x == -2:
-					rook = board.get_piece_from_pos((7, self.y))
-					rook.move(board, board.get_square_from_pos((5, self.y)), force=True)
-
+			self.make_move(board, square)
 			return True
 		else:
 			board.selected_piece = None
 			return False
 
+	def make_move(self, board, square, AI=False, move=None):
+		prev_square = board.get_square_from_pos(self.pos)
+		new_move = Move(piece=self,from_pos=self.pos,to_pos=square.pos,captured=square.occupying_piece,piece_has_moved=self.has_moved)
+		self.pos, self.x, self.y = square.pos, square.x, square.y
+
+		prev_square.occupying_piece = None
+		square.occupying_piece = self
+		board.selected_piece = None
+		self.has_moved = True
+
+		# Pawn promotion
+		if self.notation == ' ':
+			if self.y == 0 or self.y == 7:
+				from data.classes.pieces.Queen import Queen
+				square.occupying_piece = Queen(
+					(self.x, self.y),
+					self.color,
+					board
+				)
+				new_move.promotion = square.occupying_piece
+
+		# Move rook if king castles
+		if self.notation == 'K':
+			if prev_square.x - self.x == 2:
+				rook = board.get_piece_from_pos((0, self.y))
+				new_move.is_castling = True
+				new_move.rook = rook
+				new_move.rook_from = (0, self.y)
+				new_move.rook_to = (3, self.y)
+				rook.move(board, board.get_square_from_pos((3, self.y)), force=True)
+			elif prev_square.x - self.x == -2:
+				rook = board.get_piece_from_pos((7, self.y))
+				new_move.is_castling = True
+				new_move.rook = rook
+				new_move.rook_from = (7, self.y)
+				new_move.rook_to = (5, self.y)
+				rook.move(board, board.get_square_from_pos((5, self.y)), force=True)
+		board.save_move(new_move)
 
 	def get_moves(self, board):
 		output = []
@@ -75,3 +89,6 @@ class Piece:
 	# True for all pieces except pawn
 	def attacking_squares(self, board):
 		return self.get_moves(board)
+	
+	def get_notation(self):
+		return self.notation

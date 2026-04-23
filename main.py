@@ -1,4 +1,5 @@
 import pygame
+from data.classes.chess_bot.Bot import Bot
 from data.classes.chess_bot.constants import *
 from data.classes.chess_bot.move_gens import get_knights_moves
 
@@ -10,6 +11,8 @@ WINDOW_SIZE = (600, 600)
 screen = pygame.display.set_mode(WINDOW_SIZE)
 
 board = Board(WINDOW_SIZE[0], WINDOW_SIZE[1])
+
+AI = True
 
 # debug function to visualize bitboards in the console
 def print_bitboards(bitboard):
@@ -41,6 +44,9 @@ def draw(display):
 
 	pygame.display.update()
 
+if AI:
+	bot = Bot(BLACK)
+
 running = True
 while running:
 	mx, my = pygame.mouse.get_pos()
@@ -48,23 +54,33 @@ while running:
 		if event.type == pygame.QUIT:
 			running = False
 
-		elif event.type == pygame.MOUSEBUTTONDOWN:
+		elif event.type == pygame.MOUSEBUTTONDOWN and not (board.turn == 'black' and AI):
 			if event.button == 1:
 				board.handle_click(mx, my)
 		
-		# debug
 		elif event.type == pygame.KEYDOWN:
+			# debug
 			if event.key == pygame.K_d:
 				bitboards = board.get_bitboards()
 				knight_test_moves = bitboards[W_KNIGHT]
 				for move in get_knights_moves(bitboards, WHITE):
 					knight_test_moves |= (1 << move[1])
 				print_bitboards(knight_test_moves)
+			# press z to undo
+			if event.key == pygame.K_z:
+				board.undo_move()
+				if AI:
+					board.undo_move()
 	
 	if board.is_in_checkmate('black'):
 		print('White wins!')
 		running = False
-	elif board.is_in_checkmate('white'):
+
+	if board.turn == 'black' and AI:
+		AImove = bot.get_random_move(board)
+		board.AI_move(AImove)
+
+	if board.is_in_checkmate('white'):
 		print('Black wins!')
 		running = False
 
