@@ -186,6 +186,48 @@ class Board:
 		return self.get_square_from_pos(pos).occupying_piece
 
 
+	def get_bitboards(self):
+		bitboards = {
+			'P': 0, 'N': 0, 'B': 0, 'R': 0, 'Q': 0, 'K': 0, # White pieces
+			'p': 0, 'n': 0, 'b': 0, 'r': 0, 'q': 0, 'k': 0  # Black pieces
+		}
+
+		for square in self.squares:
+			piece = square.occupying_piece
+			if piece is not None:
+				# Pygame y=0 is Rank 8, y=7 is Rank 1. 
+				# Invert y so index 0 is A1 and index 63 is H8 (Little Edian Rank File mapping).
+				lerf_index = (7 - square.y) * 8 + square.x
+
+				# Safely get the piece type by its class name
+				piece_type = piece.__class__.__name__
+				
+				# Map the class name to standard FIDE notation
+				symbol_map = {
+					'Pawn': 'P', 'Knight': 'N', 'Bishop': 'B', 
+					'Rook': 'R', 'Queen': 'Q', 'King': 'K'
+				}
+				symbol = symbol_map.get(piece_type)
+				
+				# Convert to lowercase if the piece is black
+				if piece.color == 'black':
+					symbol = symbol.lower()
+
+				# Stamp this piece onto its specific bitboard using Bitwise OR
+				# Example: 0001, shift by the lerf index 3 to 1000 and OR 0100 to get 1100
+				bitboards[symbol] |= (1 << lerf_index)
+
+		# Generate the summary bitboards for quick AI lookups
+		bitboards['white_pieces'] = (bitboards['P'] | bitboards['N'] | bitboards['B'] | 
+									 bitboards['R'] | bitboards['Q'] | bitboards['K'])
+		
+		bitboards['black_pieces'] = (bitboards['p'] | bitboards['n'] | bitboards['b'] | 
+									 bitboards['r'] | bitboards['q'] | bitboards['k'])
+		
+		bitboards['occupied_squares'] = bitboards['white_pieces'] | bitboards['black_pieces']
+
+		return bitboards
+
 	def draw(self, display):
 		if self.selected_piece is not None:
 			self.get_square_from_pos(self.selected_piece.pos).highlight = True
