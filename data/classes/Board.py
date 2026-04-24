@@ -11,14 +11,17 @@ from data.classes.pieces.King import King
 from data.classes.pieces.Pawn import Pawn
 
 class Board:
-	def __init__(self, width, height):
+	def __init__(self, width, height, is_flipped=False):
 		self.width = width
 		self.height = height
 		self.square_width = width // 8
 		self.square_height = height // 8
 		self.selected_piece = None
 		self.turn = 'white'
+
 		self.move_history = []
+
+		self.is_flipped = is_flipped
 
 		self.config = [
 			['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
@@ -34,6 +37,8 @@ class Board:
 		self.squares = self.generate_squares()
 
 		self.setup_board()
+		if self.is_flipped:
+			self.apply_view(True)
 
 	def generate_squares(self):
 		output = []
@@ -64,6 +69,8 @@ class Board:
 										piece_has_moved=piece.has_moved))
 		return moves
 
+	def switch_turn(self):
+		self.turn = WHITE if self.turn == BLACK else BLACK
 
 	def setup_board(self):
 		for y, row in enumerate(self.config):
@@ -117,6 +124,8 @@ class Board:
 	def handle_click(self, mx, my):
 		x = mx // self.square_width
 		y = my // self.square_height
+		if x < 0 or x > 7 or y < 0 or y > 7:
+			return
 		clicked_square = self.get_square_from_pos((x, y))
 
 		if self.selected_piece is None:
@@ -126,11 +135,36 @@ class Board:
 
 		elif self.selected_piece.move(self, clicked_square):
 			print(f"Move {len(self.move_history)}: {self.move_history[len(self.move_history) - 1].from_pos} to {self.move_history[len(self.move_history) - 1].to_pos}")
-			self.turn = 'white' if self.turn == 'black' else 'black'
+			self.switch_turn()
 
 		elif clicked_square.occupying_piece is not None:
 			if clicked_square.occupying_piece.color == self.turn:
 				self.selected_piece = clicked_square.occupying_piece
+
+	def handle_click_flipped(self, mx, my):
+		x = 7 - (mx // self.square_width)
+		y = 7 - (my // self.square_height)
+		if x < 0 or x > 7 or y < 0 or y > 7:
+			return
+		clicked_square = self.get_square_from_pos((x, y))
+
+		if self.selected_piece is None:
+			if clicked_square.occupying_piece is not None:
+				if clicked_square.occupying_piece.color == self.turn:
+					self.selected_piece = clicked_square.occupying_piece
+
+		elif self.selected_piece.move(self, clicked_square):
+			print(f"Move {len(self.move_history)}: {self.move_history[len(self.move_history) - 1].from_pos} to {self.move_history[len(self.move_history) - 1].to_pos}")
+			self.switch_turn()
+
+		elif clicked_square.occupying_piece is not None:
+			if clicked_square.occupying_piece.color == self.turn:
+				self.selected_piece = clicked_square.occupying_piece
+
+	def apply_view(self, is_flipped):
+		self.is_flipped = is_flipped
+		for square in self.squares:
+			square.set_view(self.is_flipped)
 
 
 	def is_in_check(self, color, board_change=None): # board_change = [(x1, y1), (x2, y2)]
@@ -207,7 +241,7 @@ class Board:
 		current_piece = move.piece
 		current_square = self.get_square_from_pos(move.to_pos)
 		current_piece.make_move(board=self, square=current_square)
-		self.turn = WHITE if self.turn == BLACK else BLACK
+		self.switch_turn()
 	
 	def save_move(self, move):
 		self.move_history.append(move)
@@ -251,7 +285,7 @@ class Board:
 			rook.pos = move.rook_from
 			rook.x, rook.y = move.rook_from
 
-		self.turn = WHITE if self.turn == BLACK else BLACK
+		self.switch_turn()
 
 
 

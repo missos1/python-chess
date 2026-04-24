@@ -25,6 +25,20 @@ class Square:
 			self.height
 		)
 
+	def set_view(self, is_flipped):
+		draw_x = 7 - self.x if is_flipped else self.x
+		draw_y = 7 - self.y if is_flipped else self.y
+
+		self.abs_x = draw_x * self.width
+		self.abs_y = draw_y * self.height
+		self.abs_pos = (self.abs_x, self.abs_y)
+		self.rect = pygame.Rect(
+			self.abs_x,
+			self.abs_y,
+			self.width,
+			self.height
+		)
+
 
 	def get_coord(self):
 		columns = 'abcdefgh'
