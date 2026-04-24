@@ -77,8 +77,12 @@ while running:
 		running = False
 
 	if board.turn == 'black' and AI:
-		AImove = bot.get_random_move(board)
+		AImove = bot.get_best_move(board)
+		# AImove = bot.get_random_move(board)
+		if AImove is None:
+			AImove = bot.get_random_move(board)
 		board.AI_move(AImove)
+		print(f"Move {len(board.move_history)}: {board.move_history[len(board.move_history) - 1].from_pos} to {board.move_history[len(board.move_history) - 1].to_pos}")
 
 	if board.is_in_checkmate('white'):
 		print('Black wins!')

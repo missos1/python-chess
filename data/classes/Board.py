@@ -1,7 +1,8 @@
 import pygame
 
 from data.classes.Square import Square
-from data.classes.move import Move
+from data.classes.Move import Move
+from data.classes.chess_bot.constants import *
 from data.classes.pieces.Rook import Rook
 from data.classes.pieces.Bishop import Bishop
 from data.classes.pieces.Knight import Knight
@@ -48,6 +49,20 @@ class Board:
 				)
 
 		return output
+	
+	def generate_moves(self):
+		moves = []
+		for square in self.squares:
+			if square.occupying_piece is not None:
+				if square.occupying_piece.color == self.turn:
+					piece = square.occupying_piece
+					for to_square in piece.get_valid_moves(self):
+						moves.append(Move(piece=piece, 
+										from_pos=square.pos, 
+										to_pos=to_square.pos, 
+										captured=to_square.occupying_piece, 
+										piece_has_moved=piece.has_moved))
+		return moves
 
 
 	def setup_board(self):
@@ -108,15 +123,14 @@ class Board:
 			if clicked_square.occupying_piece is not None:
 				if clicked_square.occupying_piece.color == self.turn:
 					self.selected_piece = clicked_square.occupying_piece
-					print(self.selected_piece.has_moved)
 
 		elif self.selected_piece.move(self, clicked_square):
+			print(f"Move {len(self.move_history)}: {self.move_history[len(self.move_history) - 1].from_pos} to {self.move_history[len(self.move_history) - 1].to_pos}")
 			self.turn = 'white' if self.turn == 'black' else 'black'
 
 		elif clicked_square.occupying_piece is not None:
 			if clicked_square.occupying_piece.color == self.turn:
 				self.selected_piece = clicked_square.occupying_piece
-				print(self.selected_piece.has_moved)
 
 
 	def is_in_check(self, color, board_change=None): # board_change = [(x1, y1), (x2, y2)]
@@ -188,56 +202,12 @@ class Board:
 
 	def get_piece_from_pos(self, pos):
 		return self.get_square_from_pos(pos).occupying_piece
-	
-	# def make_move(self, move):
-	# 	from_square = self.get_square_from_pos(move.from_pos)
-	# 	to_square = self.get_square_from_pos(move.to_pos)
-	# 	new_move = Move(piece=move.piece,
-	# 		  		from_pos=move.from_pos,
-	# 				to_pos=move.to_pos,
-	# 				captured=to_square.occupying_piece,
-	# 				piece_has_moved=move.piece.has_moved)
-	# 	move.piece.pos, move.piece.x, move.piece.y = to_square.pos, to_square.x, to_square.y
-	# 	from_square.occupying_piece = None
-	# 	to_square.occupying_piece = move.piece
-	# 	self.selected_piece = None
-	# 	move.piece.has_moved = True
-
-	# 	# Pawn promotion
-	# 	if move.piece.notation == ' ':
-	# 		if to_square.y == 0 or to_square.y == 7:
-	# 			from data.classes.pieces.Queen import Queen
-	# 			to_square.occupying_piece = Queen(
-	# 				(to_square.x, to_square.y),
-	# 				move.piece.color,
-	# 				self
-	# 			)
-	# 			new_move.promotion = to_square.occupying_piece
-
-	# 	# Move rook if king castles
-	# 	if move.piece.notation == 'K':
-	# 		if from_square.x - to_square.x == 2:
-	# 			rook = self.get_piece_from_pos((0, to_square.y))
-	# 			new_move.is_castling = True
-	# 			new_move.rook = rook
-	# 			new_move.rook_from = (0, to_square.y)
-	# 			new_move.rook_to = (3, to_square.y)
-	# 			rook.move(self, new_move.rook_to, force=True)
-	# 		elif from_square.x - to_square.x == -2:
-	# 			rook = self.get_piece_from_pos((7, to_square.y))
-	# 			new_move.is_castling = True
-	# 			new_move.rook = rook
-	# 			new_move.rook_from = (7, to_square.y)
-	# 			new_move.rook_to = (5, to_square.y)
-	# 			rook.move(self, new_move.rook_to, force=True)
-	# 	self.save_move(new_move)
-	# 	self.turn = 'white' if self.turn == 'black' else 'black'
 
 	def AI_move(self, move):
 		current_piece = move.piece
-		square = self.get_square_from_pos(move.to_pos)
-		current_piece.make_move(self, square, True, move)
-		self.turn = 'white'
+		current_square = self.get_square_from_pos(move.to_pos)
+		current_piece.make_move(board=self, square=current_square)
+		self.turn = WHITE if self.turn == BLACK else BLACK
 	
 	def save_move(self, move):
 		self.move_history.append(move)
@@ -281,7 +251,7 @@ class Board:
 			rook.pos = move.rook_from
 			rook.x, rook.y = move.rook_from
 
-		self.turn = 'black' if self.turn == 'white' else 'white'
+		self.turn = WHITE if self.turn == BLACK else BLACK
 
 
 

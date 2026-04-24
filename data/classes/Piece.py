@@ -1,6 +1,6 @@
 import pygame
 
-from data.classes.move import Move
+from data.classes.Move import Move
 
 class Piece:
 	def __init__(self, pos, color, board):
@@ -16,15 +16,16 @@ class Piece:
 			i.highlight = False
 
 		if square in self.get_valid_moves(board) or force:
-			self.make_move(board, square)
+			self.make_move(board, square, force=force)
 			return True
 		else:
 			board.selected_piece = None
 			return False
 
-	def make_move(self, board, square, AI=False, move=None):
+	def make_move(self, board, square, force=False):
 		prev_square = board.get_square_from_pos(self.pos)
-		new_move = Move(piece=self,from_pos=self.pos,to_pos=square.pos,captured=square.occupying_piece,piece_has_moved=self.has_moved)
+		if not force:
+			new_move = Move(piece=self,from_pos=self.pos,to_pos=square.pos,captured=square.occupying_piece,piece_has_moved=self.has_moved)
 		self.pos, self.x, self.y = square.pos, square.x, square.y
 
 		prev_square.occupying_piece = None
@@ -33,7 +34,7 @@ class Piece:
 		self.has_moved = True
 
 		# Pawn promotion
-		if self.notation == ' ':
+		if self.notation == ' ' and not force:
 			if self.y == 0 or self.y == 7:
 				from data.classes.pieces.Queen import Queen
 				square.occupying_piece = Queen(
@@ -44,7 +45,7 @@ class Piece:
 				new_move.promotion = square.occupying_piece
 
 		# Move rook if king castles
-		if self.notation == 'K':
+		if self.notation == 'K' and not force:
 			if prev_square.x - self.x == 2:
 				rook = board.get_piece_from_pos((0, self.y))
 				new_move.is_castling = True
@@ -59,7 +60,8 @@ class Piece:
 				new_move.rook_from = (7, self.y)
 				new_move.rook_to = (5, self.y)
 				rook.move(board, board.get_square_from_pos((5, self.y)), force=True)
-		board.save_move(new_move)
+		if not force:
+			board.save_move(new_move)
 
 	def get_moves(self, board):
 		output = []
