@@ -5,15 +5,15 @@ from data.classes.chess_bot import evaluate
 
 def negamax(board, depth, alpha, beta, turn_multiplier):
     if depth == 0:
-        # return turn_multiplier * evaluate(), None
-        return random.randint(-100, 100), None # fake evaluate, it should return turn_multiplier * evaluate(), None
+        # if evaluate works, change this line below to 'return turn_multiplier * evaluate()'
+        return random.randint(0, 100) * turn_multiplier, None
     
     max_score = -float('inf')
     best_move = None
     moves = board.generate_moves()
 
     for move in moves:
-        board.AI_move(move)
+        board.make_move(move)
         score, _ = negamax(board, depth - 1, -beta, -alpha, -turn_multiplier)
         score = -score
         board.undo_move()

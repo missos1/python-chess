@@ -11,6 +11,7 @@ class Bot:
         self.color = color
         self.depth = depth
     
+    # this function calculates and returns the best move (using Negamax with Alpha-Beta pruning)
     def get_best_move(self, board):
         best_move = None
         score, best_move = negamax(board, self.depth, -float('inf'), float('inf'), 1 if board.turn == WHITE else -1)

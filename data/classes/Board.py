@@ -237,10 +237,10 @@ class Board:
 	def get_piece_from_pos(self, pos):
 		return self.get_square_from_pos(pos).occupying_piece
 
-	def AI_move(self, move):
+	def make_move(self, move):
 		current_piece = move.piece
 		current_square = self.get_square_from_pos(move.to_pos)
-		current_piece.make_move(board=self, square=current_square)
+		current_piece.moving(board=self, square=current_square)
 		self.switch_turn()
 	
 	def save_move(self, move):

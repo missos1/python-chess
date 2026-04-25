@@ -16,13 +16,13 @@ class Piece:
 			i.highlight = False
 
 		if square in self.get_valid_moves(board) or force:
-			self.make_move(board, square, force=force)
+			self.moving(board, square, force=force)
 			return True
 		else:
 			board.selected_piece = None
 			return False
 
-	def make_move(self, board, square, force=False):
+	def moving(self, board, square, force=False):
 		prev_square = board.get_square_from_pos(self.pos)
 		if not force:
 			new_move = Move(piece=self,from_pos=self.pos,to_pos=square.pos,captured=square.occupying_piece,piece_has_moved=self.has_moved)

@@ -61,10 +61,15 @@ class PvEState(State):
             self.run_bot_move()
 
     def run_bot_move(self):
+        # Note: it still temporary uses fake evaluate to ensure negamax algorithm works
         AImove = self.bot.get_best_move(self.board)
+
+        # If you can't find the best move, just use a random move to prevent soft locks
         if AImove is None:
             AImove = self.bot.get_random_move(self.board)
-        self.board.AI_move(AImove)
+
+        self.board.make_move(AImove)
+
         # debug
         print(f"Move {len(self.board.move_history)}: {self.board.move_history[len(self.board.move_history) - 1].from_pos} to {self.board.move_history[len(self.board.move_history) - 1].to_pos}")
         
