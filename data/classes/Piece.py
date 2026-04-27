@@ -15,12 +15,27 @@ class Piece:
 
 		if square in self.get_valid_moves(board) or force:
 			prev_square = board.get_square_from_pos(self.pos)
+
+			if self.notation == ' ' and board.en_passant_target is not None:
+				if square.pos == board.en_passant_target and square.occupying_piece is None and prev_square.x != square.x:
+					capture_y = square.y + (1 if self.color == 'white' else -1)
+					if 0 <= capture_y < 8:
+						captured_square = board.get_square_from_pos((square.x, capture_y))
+						captured_piece = captured_square.occupying_piece
+						if captured_piece is not None and captured_piece.notation == ' ' and captured_piece.color != self.color:
+							captured_square.occupying_piece = None
+
 			self.pos, self.x, self.y = square.pos, square.x, square.y
 
 			prev_square.occupying_piece = None
 			square.occupying_piece = self
 			board.selected_piece = None
 			self.has_moved = True
+
+			board.en_passant_target = None
+			if self.notation == ' ' and abs(prev_square.y - self.y) == 2:
+				middle_y = (prev_square.y + self.y) // 2
+				board.en_passant_target = (self.x, middle_y)
 
 			# Pawn promotion
 			if self.notation == ' ':
