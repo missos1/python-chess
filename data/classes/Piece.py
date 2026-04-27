@@ -62,6 +62,64 @@ class Piece:
 			return False
 
 
+	def unmake_move(self, board, move_state):
+		"""Reverse all state changes from a move.
+		
+		Used by search algorithms to explore move trees via make/unmake cycles.
+		Restores: piece position, has_moved flag, captures, en passant, promotion, castling.
+		
+		Args:
+			board: The board object.
+			move_state: Dict returned by board.capture_move_state() before the move.
+		"""
+		# Restore piece position
+		self.pos = move_state['from_pos']
+		self.x = move_state['from_pos'][0]
+		self.y = move_state['from_pos'][1]
+		
+		# Restore has_moved flag (critical for castling/pawn legality)
+		self.has_moved = move_state['piece_had_moved_before']
+		
+		# Restore source and destination squares
+		from_square = board.get_square_from_pos(move_state['from_pos'])
+		to_square = board.get_square_from_pos(move_state['to_pos'])
+		
+		# Remove piece from destination
+		to_square.occupying_piece = None
+		
+		# Place piece back on source square
+		from_square.occupying_piece = self
+		
+		# Restore captured piece (if any)
+		if move_state['captured_piece'] is not None:
+			captured_square = board.get_square_from_pos(move_state['captured_pos'])
+			captured_square.occupying_piece = move_state['captured_piece']
+		
+		# Restore en passant target state
+		board.en_passant_target = move_state['en_passant_target_before']
+		
+		# Handle promotion: replace promoted piece back with original pawn
+		if move_state['is_promotion']:
+			from_square.occupying_piece = self
+		
+		# Handle castling: recursively unmake rook's move
+		if move_state['is_castling'] and move_state['rook_state'] is not None:
+			rook_state = move_state['rook_state']
+			rook = rook_state['rook']
+			rook.unmake_move(board, {
+				'piece': rook,
+				'from_pos': rook_state['from_pos'],
+				'to_pos': rook_state['to_pos'],
+				'piece_had_moved_before': rook_state['rook_had_moved_before'],
+				'captured_piece': None,
+				'captured_pos': None,
+				'en_passant_target_before': board.en_passant_target,
+				'is_promotion': False,
+				'is_castling': False,
+				'rook_state': None
+			})
+
+
 	def get_moves(self, board):
 		output = []
 		for direction in self.get_possible_moves(board):

@@ -2,6 +2,8 @@ import pygame
 import random
 from data.states.State import State
 from data.classes.Board import Board
+from data.classes.chess_bot.search import find_best_move
+from data.classes.chess_bot.evaluate import Evaluate
 
 class PvEState(State):
     def __init__(self, manager):
@@ -51,30 +53,21 @@ class PvEState(State):
             self.run_bot_move()
 
     def run_bot_move(self):
-        # TODO: Add Model prediction here. 
-        # Integrate the AI model to calculate and return the best move on self.board. 
-        
+        """Execute bot move using alpha-beta negamax search."""
         bot_color = 'white' if self.player_color == 'black' else 'black'
         
-        # --- Temporarily use a random move to prevent soft locks during testing ---
-        # NOTE: Remove this stubbed logic once the model provides a move!
-        valid_moves = []
-        for square in self.board.squares:
-            piece = square.occupying_piece
-            if piece and piece.color == bot_color:
-                moves = piece.get_valid_moves(self.board)
-                for move_square in moves:
-                    valid_moves.append((piece, move_square))
-                    
-        if valid_moves:
-            piece, move_square = random.choice(valid_moves)
-            # The .move() function returns True if valid execution
-            if piece.move(self.board, move_square):
-                # Switch turn back to the player manually after bot hits move
-                self.board.turn = self.player_color
-        else:
-            # No valid moves edge case (Should be covered by checkmate checks normally)
-            pass
+        # Temporarily set turn to bot so search works correctly
+        self.board.turn = bot_color
+        
+        # Find best move using alpha-beta search with depth 2
+        evaluator = Evaluate(self.board)
+        best_move = find_best_move(self.board, depth=2, evaluator=evaluator)
+        
+        if best_move:
+            piece, move_square = best_move
+            piece.move(self.board, move_square, force=True)
+            # Switch turn back to player
+            self.board.turn = self.player_color
 
     def draw(self, surface):
         surface.fill('white')

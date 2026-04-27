@@ -145,7 +145,10 @@ class Board:
 			square.set_view(self.is_flipped)
 
 
-	def is_in_check(self, color, board_change=None): # board_change = [(x1, y1), (x2, y2)]
+	def is_in_check(self, color=None, board_change=None): # board_change = [(x1, y1), (x2, y2)]
+		if color == None:
+			color = self.turn
+		
 		output = False
 		king_pos = None
 
@@ -228,6 +231,57 @@ class Board:
 	def get_piece_from_pos(self, pos):
 		return self.get_square_from_pos(pos).occupying_piece
 
+	def get_all_valid_moves(self, color=None):
+		if color == None:
+			color = self.turn
+
+		moves = []
+		for square in self.squares:
+			piece = square.occupying_piece
+			if piece and piece.color == color:
+				for move_square in piece.get_valid_moves(self):
+					moves.append((piece, move_square))
+		return moves
+
+	def is_recapturable(self, piece, target_square):
+		"""Check if capturing piece can be immediately recaptured by lower-value opponent piece.
+		
+		Used by move ordering to avoid scoring bad trades (e.g., Qxp when pawn recaptures).
+		
+		Args:
+			piece: The attacking piece about to capture.
+			target_square: The destination square (where capture happens).
+		
+		Returns:
+			Tuple (is_recapturable, min_recapture_value):
+			- is_recapturable: True if an opponent piece can immediately recapture
+			- min_recapture_value: Value of lowest-value piece that can recapture (0 if none)
+		"""
+		if target_square.occupying_piece is None:
+			return False, 0
+		
+		# Get all opponent pieces that can attack this square
+		opponent_color = 'black' if piece.color == 'white' else 'white'
+		min_recapture_value = float('inf')
+		can_recapture = False
+		
+		# Check all opponent pieces
+		for square in self.squares:
+			opponent_piece = square.occupying_piece
+			if opponent_piece and opponent_piece.color == opponent_color:
+				# Check if this opponent piece can attack target_square
+				for attacked_square in opponent_piece.get_moves(self):
+					if attacked_square.pos == target_square.pos:
+						# This opponent piece can recapture
+						can_recapture = True
+						# Get piece value
+						piece_type = opponent_piece.notation
+						value_map = {' ': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 100}
+						value = value_map.get(piece_type, 0)
+						min_recapture_value = min(min_recapture_value, value)
+					break
+		
+		return can_recapture, min_recapture_value if can_recapture else 0
 
 	def get_bitboards(self):
 		bitboards = {
@@ -270,6 +324,74 @@ class Board:
 		bitboards['occupied_squares'] = bitboards['white_pieces'] | bitboards['black_pieces']
 
 		return bitboards
+
+	def capture_move_state(self, piece, target_square):
+		"""Capture all board state before executing a move.
+		
+		Used by search algorithms (e.g., alpha-beta minimax) to enable move/unmake cycles.
+		Must be called BEFORE piece.move() executes.
+		
+		Args:
+			piece: The piece about to move.
+			target_square: The destination square.
+		
+		Returns:
+			dict with keys: from_pos, to_pos, piece_had_moved_before, captured_piece,
+			captured_pos, en_passant_target_before, is_promotion, is_castling,
+			rook_state (for castling only)
+		"""
+		from_square = self.get_square_from_pos(piece.pos)
+		captured_piece = target_square.occupying_piece
+		captured_pos = target_square.pos
+		
+		# Handle en passant: captured piece is on different square
+		if (piece.notation == ' ' and self.en_passant_target is not None and
+			target_square.pos == self.en_passant_target and 
+			captured_piece is None and from_square.x != target_square.x):
+			capture_y = target_square.y + (1 if piece.color == 'white' else -1)
+			if 0 <= capture_y < 8:
+				en_passant_square = self.get_square_from_pos((target_square.x, capture_y))
+				captured_piece = en_passant_square.occupying_piece
+				captured_pos = en_passant_square.pos
+		
+		# Detect if this is a promotion
+		is_promotion = (piece.notation == ' ' and (target_square.y == 0 or target_square.y == 7))
+		
+		# Detect if this is castling and snapshot rook state
+		is_castling = (piece.notation == 'K' and abs(from_square.x - target_square.x) == 2)
+		rook_state = None
+		if is_castling:
+			if from_square.x - target_square.x == 2:
+				# Queenside castling
+				rook = self.get_piece_from_pos((0, piece.y))
+				rook_from = (0, piece.y)
+				rook_to = (3, piece.y)
+			elif from_square.x - target_square.x == -2:
+				# Kingside castling
+				rook = self.get_piece_from_pos((7, piece.y))
+				rook_from = (7, piece.y)
+				rook_to = (5, piece.y)
+			
+			if rook is not None:
+				rook_state = {
+					'rook': rook,
+					'from_pos': rook_from,
+					'to_pos': rook_to,
+					'rook_had_moved_before': rook.has_moved
+				}
+		
+		return {
+			'piece': piece,
+			'from_pos': piece.pos,
+			'to_pos': target_square.pos,
+			'piece_had_moved_before': piece.has_moved,
+			'captured_piece': captured_piece,
+			'captured_pos': captured_pos,
+			'en_passant_target_before': self.en_passant_target,
+			'is_promotion': is_promotion,
+			'is_castling': is_castling,
+			'rook_state': rook_state
+		}
 
 	def draw(self, display):
 		if self.selected_piece is not None:

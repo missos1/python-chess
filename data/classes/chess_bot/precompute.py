@@ -25,3 +25,4 @@ def precomputed_king_moves():
 
 KNIGHT_MOVES = precomputed_knight_moves()
 KING_MOVES = precomputed_king_moves()
+

@@ -83,14 +83,16 @@ class King(Piece):
 		for square in self.get_moves(board):
 			if not board.is_in_check(self.color, board_change=[self.pos, square.pos]):
 				output.append(square)
-
+		
+		# Castling moves with safety validation
 		if self.can_castle(board) == 'queenside':
-			output.append(
-				board.get_square_from_pos((self.x - 2, self.y))
-			)
+			queenside_dest = board.get_square_from_pos((self.x - 2, self.y))
+			if not board.is_in_check(self.color, board_change=[self.pos, queenside_dest.pos]):
+				output.append(queenside_dest)
+		
 		if self.can_castle(board) == 'kingside':
-			output.append(
-				board.get_square_from_pos((self.x + 2, self.y))
-			)
-
+			kingside_dest = board.get_square_from_pos((self.x + 2, self.y))
+			if not board.is_in_check(self.color, board_change=[self.pos, kingside_dest.pos]):
+				output.append(kingside_dest)
+		
 		return output
