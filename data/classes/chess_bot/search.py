@@ -1,2 +1,2 @@
-def negamax():
+def negamax_alphabeta():
     pass

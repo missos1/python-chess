@@ -44,10 +44,6 @@ def precompute_northwest_rays():
         rays.append(ray)
     return rays
 
-
-# --- NEGATIVE RAYS (Index Decreases) ---
-# Note: Right-shifts (>>) naturally hit 0 in Python, so BOARD_MASK isn't strictly needed here.
-
 def precompute_south_rays():
     rays = []
     for square in range(64):
