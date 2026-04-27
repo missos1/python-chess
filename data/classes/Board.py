@@ -1,5 +1,7 @@
 import pygame
 
+from data.classes.chess_bot.constants import *
+
 from data.classes.Square import Square
 from data.classes.pieces.Rook import Rook
 from data.classes.pieces.Bishop import Bishop
@@ -192,7 +194,7 @@ class Board:
 
 	def is_in_checkmate(self, color):
 		output = False
-
+  
 		for piece in [i.occupying_piece for i in self.squares]:
 			if piece != None:
 				if piece.notation == 'K' and piece.color == color:
@@ -217,8 +219,9 @@ class Board:
 
 	def get_bitboards(self):
 		bitboards = {
-			'P': 0, 'N': 0, 'B': 0, 'R': 0, 'Q': 0, 'K': 0, # White pieces
-			'p': 0, 'n': 0, 'b': 0, 'r': 0, 'q': 0, 'k': 0  # Black pieces
+			W_PAWN: 0, W_KNIGHT: 0, W_BISHOP: 0, W_ROOK: 0, W_QUEEN: 0, W_KING: 0,
+			B_PAWN: 0, B_KNIGHT: 0, B_BISHOP: 0, B_ROOK: 0, B_QUEEN: 0, B_KING: 0,
+			W_PIECES: 0, B_PIECES: 0, OCCUPIED: 0
 		}
 
 		for square in self.squares:
@@ -231,7 +234,7 @@ class Board:
 				# Safely get the piece type by its class name
 				piece_type = piece.__class__.__name__
 				
-				# Map the class name to standard FIDE notation
+				# Map the class name
 				symbol_map = {
 					'Pawn': 'P', 'Knight': 'N', 'Bishop': 'B', 
 					'Rook': 'R', 'Queen': 'Q', 'King': 'K'
@@ -239,7 +242,7 @@ class Board:
 				symbol = symbol_map.get(piece_type)
 				
 				# Convert to lowercase if the piece is black
-				if piece.color == 'black':
+				if piece.color == BLACK:
 					symbol = symbol.lower()
 
 				# Stamp this piece onto its specific bitboard using Bitwise OR
@@ -247,13 +250,13 @@ class Board:
 				bitboards[symbol] |= (1 << lerf_index)
 
 		# Generate the summary bitboards for quick AI lookups
-		bitboards['white_pieces'] = (bitboards['P'] | bitboards['N'] | bitboards['B'] | 
-									 bitboards['R'] | bitboards['Q'] | bitboards['K'])
+		bitboards[W_PIECES] = (bitboards[W_PAWN] | bitboards[W_KNIGHT] | bitboards[W_BISHOP] | 
+									 bitboards[W_ROOK] | bitboards[W_QUEEN] | bitboards[W_KING])
 		
-		bitboards['black_pieces'] = (bitboards['p'] | bitboards['n'] | bitboards['b'] | 
-									 bitboards['r'] | bitboards['q'] | bitboards['k'])
+		bitboards[B_PIECES] = (bitboards[B_PAWN] | bitboards[B_KNIGHT] | bitboards[B_BISHOP] | 
+									 bitboards[B_ROOK] | bitboards[B_QUEEN] | bitboards[B_KING])
 		
-		bitboards['occupied_squares'] = bitboards['white_pieces'] | bitboards['black_pieces']
+		bitboards[OCCUPIED] = bitboards[W_PIECES] |bitboards[B_PIECES]
 
 		return bitboards
 

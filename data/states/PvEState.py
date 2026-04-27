@@ -2,6 +2,9 @@ import pygame
 import random
 from data.states.State import State
 from data.classes.Board import Board
+from data.classes.chess_bot.constants import *
+from data.classes.chess_bot.move_gens import *
+from .debug import bitboard_visualize
 
 class PvEState(State):
     def __init__(self, manager):
@@ -10,12 +13,13 @@ class PvEState(State):
         self.player_color = None
         self.game_over = False
 
-    def on_enter(self):
+    def on_enter(self) -> None:
         # Fresh board and random color assignment on load
         self.player_color = random.choice(['white', 'black'])
         self.board = Board(600, 600, is_flipped=(self.player_color == 'black'))
         self.game_over = False
         print(f"PvE Started! You are playing as {self.player_color}.")
+        
 
     def handle_events(self, events):
         if self.game_over:
@@ -30,6 +34,11 @@ class PvEState(State):
                         self.board.handle_click_flipped(mx, my)
                     else:
                         self.board.handle_click(mx, my)
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_d:
+                    # Debug: Visualize bitboard for a piece type
+                    bitboard_visualize(self.board.get_bitboards())
+                    
 
     def update(self):
         if self.game_over:
@@ -79,3 +88,5 @@ class PvEState(State):
     def draw(self, surface):
         surface.fill('white')
         self.board.draw(surface)
+    
+    

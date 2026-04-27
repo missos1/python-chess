@@ -1,6 +1,7 @@
 import pygame
 from data.states.State import State
 from data.classes.Board import Board
+from .debug import bitboard_visualize
 
 class PvPState(State):
     def __init__(self, manager):
@@ -16,6 +17,10 @@ class PvPState(State):
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
                 self.board.handle_click(mx, my)
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_d:
+                    # Debug: Visualize bitboard for a piece type
+                    bitboard_visualize(self.board.get_bitboards())
 
     def update(self):
         if self.board.is_in_checkmate('black'):
