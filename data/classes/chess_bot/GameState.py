@@ -1,14 +1,15 @@
 from .move_filter import is_square_attacked
 
 class GameState:
-    def __init__(self, bitboards, piece_values_array):
+    def __init__(self, bitboards, pieces_array):
         self.board = bitboards
-        self.piece_values = piece_values_array
+        self.piece_values = pieces_array
         self.castling_rights = 15
         self.state_history = []
         
     def make_move(self, move):
         # Placeholder for move execution logic
+        # TODO: Remember to teleport the rooks when castling and update castling rights accordingly
         pass
     
     def undo_move(self, move):

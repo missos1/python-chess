@@ -260,6 +260,12 @@ class Board:
 
 		return bitboards
 
+	# This function will be for the evaluation function to quickly access piece values without bitboard manipulation during capturing or evaluation
+ 	# It will be a 64-length array with the value of the piece on each square, or 0 if it's empty
+	# TODO: Implement piece values
+	def get_pieces_array(self):
+		pass
+
 	def draw(self, display):
 		if self.selected_piece is not None:
 			self.get_square_from_pos(self.selected_piece.pos).highlight = True
