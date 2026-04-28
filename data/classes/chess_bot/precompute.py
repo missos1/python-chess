@@ -119,6 +119,7 @@ def precomputed_knight_moves():
         board |= (knight & NOT_H_FILE) >> 15 # Move 2 down, 1 right
         board |= (knight & NOT_AB_FILE) >> 10 # Move 1 down, 2 left
         board |= (knight & NOT_GH_FILE) >> 6 # Move 1 down, 2 right
+        board &= BOARD_MASK
         moves.append(board)
     return moves
 
@@ -135,6 +136,7 @@ def precomputed_king_moves():
         board |= (king & NOT_A_FILE) >> 9 # Move 1 down, 1 left
         board |= king >> 8 # Move 1 down
         board |= (king & NOT_H_FILE) >> 7 # Move 1 down, 1 right
+        board &= BOARD_MASK
         moves.append(board)
     return moves
 
