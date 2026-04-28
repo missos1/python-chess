@@ -19,6 +19,7 @@ class Board:
 		self.selected_piece = None
 		self.turn = 'white'
 		self.is_flipped = is_flipped
+		self.en_passant_target = None
 
 		self.config = [
 			['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
@@ -147,6 +148,10 @@ class Board:
 
 
 	def is_in_check(self, color, board_change=None): # board_change = [(x1, y1), (x2, y2)]
+     
+		if color == None:
+			color = self.turn
+   
 		output = False
 		king_pos = None
 
@@ -154,6 +159,8 @@ class Board:
 		old_square = None
 		new_square = None
 		new_square_old_piece = None
+		en_passant_captured_square = None
+		en_passant_captured_piece = None
 
 		if board_change is not None:
 			for square in self.squares:
@@ -166,6 +173,15 @@ class Board:
 					new_square = square
 					new_square_old_piece = new_square.occupying_piece
 					new_square.occupying_piece = changing_piece
+     
+     # Simulate en passant capture by temporarily removing the captured pawn.
+			if changing_piece is not None and changing_piece.notation == ' ' and self.en_passant_target is not None:
+				if board_change[1] == self.en_passant_target and new_square_old_piece is None and old_square.x != new_square.x:
+					capture_y = new_square.y + (1 if changing_piece.color == 'white' else -1)
+					if 0 <= capture_y < 8:
+						en_passant_captured_square = self.get_square_from_pos((new_square.x, capture_y))
+						en_passant_captured_piece = en_passant_captured_square.occupying_piece
+						en_passant_captured_square.occupying_piece = None
 
 		pieces = [
 			i.occupying_piece for i in self.squares if i.occupying_piece is not None
@@ -188,6 +204,8 @@ class Board:
 		if board_change is not None:
 			old_square.occupying_piece = changing_piece
 			new_square.occupying_piece = new_square_old_piece
+			if en_passant_captured_square is not None:
+				en_passant_captured_square.occupying_piece = en_passant_captured_piece
 						
 		return output
 
