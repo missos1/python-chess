@@ -44,6 +44,8 @@ class Square:
 		columns = 'abcdefgh'
 		return columns[self.x] + str(self.y + 1)
 
+	def get_index_from_square(self):
+		return (7 - self.y) * 8 + self.x
 
 	def draw(self, display):
 		if self.highlight:
