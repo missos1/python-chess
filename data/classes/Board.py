@@ -211,18 +211,15 @@ class Board:
 
 
 	def is_in_checkmate(self, color):
-		output = False
-  
 		for piece in [i.occupying_piece for i in self.squares]:
-			if piece != None:
-				if piece.notation == 'K' and piece.color == color:
-					king = piece
+			if piece != None and piece.color == color:
+				if piece.get_valid_moves(self) != []:
+					return False
 
-		if king.get_valid_moves(self) == []:
-			if self.is_in_check(color):
-				output = True
+		if self.is_in_check(color):
+			return True
 
-		return output
+		return False
 
 
 	def get_square_from_pos(self, pos):
