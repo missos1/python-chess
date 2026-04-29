@@ -8,23 +8,26 @@ class Piece:
 		self.color = color
 		self.has_moved = False
 
-	def move(self, board, square, force=False):
+	def move(self, board, square, game_state, force=False):
 
 		for i in board.squares:
 			i.highlight = False
 
-		if square in self.get_valid_moves(board) or force:
-			# self.moving(board, square, force)
-
+		print(f"Attempting move from {self.get_index_from_pos()} to {square.get_index_from_square()}")
+		valid_moves = [move[:2] for move in game_state.get_strictly_legal_moves(board.turn)]
+		for move in valid_moves:
+			print(f"Valid move: {move}")
+		if (self.get_index_from_pos(), square.get_index_from_square()) in valid_moves or force:
+			board.selected_piece = None
 			return True
 		else:
 			board.selected_piece = None
 			return False
 
 	def moving(self, board, square, force=False):
+		for i in board.squares:
+			i.highlight = False
 		prev_square = board.get_square_from_pos(self.pos)
-		# if not force:
-		# 	new_move = Move(piece=self,from_pos=self.pos,to_pos=square.pos,captured=square.occupying_piece,piece_has_moved=self.has_moved)
 		self.pos, self.x, self.y = square.pos, square.x, square.y
 
 		prev_square.occupying_piece = None
@@ -41,26 +44,15 @@ class Piece:
 					self.color,
 					board
 				)
-				# new_move.promotion = square.occupying_piece
 
 		# Move rook if king castles
 		if self.notation == 'K' and not force:
 			if prev_square.x - self.x == 2:
 				rook = board.get_piece_from_pos((0, self.y))
-				# new_move.is_castling = True
-				# new_move.rook = rook
-				# new_move.rook_from = (0, self.y)
-				# new_move.rook_to = (3, self.y)
 				rook.moving(board, board.get_square_from_pos((3, self.y)), force=True)
 			elif prev_square.x - self.x == -2:
 				rook = board.get_piece_from_pos((7, self.y))
-				# new_move.is_castling = True
-				# new_move.rook = rook
-				# new_move.rook_from = (7, self.y)
-				# new_move.rook_to = (5, self.y)
 				rook.moving(board, board.get_square_from_pos((5, self.y)), force=True)
-		# if not force:
-		# 	board.save_move(new_move)
 
 	def get_moves(self, board):
 		output = []
@@ -90,3 +82,6 @@ class Piece:
 	# True for all pieces except pawn
 	def attacking_squares(self, board):
 		return self.get_moves(board)
+	
+	def get_index_from_pos(self):
+		return (7 - self.y) * 8 + self.x

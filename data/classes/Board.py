@@ -102,7 +102,7 @@ class Board:
 						)
 
 
-	def handle_click(self, mx, my):
+	def handle_click(self, mx, my, game_state):
 		x = mx // self.square_width
 		y = my // self.square_height
 		if x < 0 or x > 7 or y < 0 or y > 7:
@@ -118,7 +118,7 @@ class Board:
 			from_pos = self.selected_piece.pos
 			dest_piece = clicked_square.occupying_piece
 			moving_piece = self.selected_piece
-			if moving_piece.move(self, clicked_square):
+			if moving_piece.move(self, clicked_square, game_state):
 				flag = FLAG_CAPTURE if dest_piece is not None and dest_piece.color != moving_piece.color else FLAG_QUIET
 				if moving_piece.notation == 'K':
 					dx = clicked_square.x - from_pos[0]
@@ -135,7 +135,7 @@ class Board:
 				if clicked_square.occupying_piece.color == self.turn:
 					self.selected_piece = clicked_square.occupying_piece
 
-	def handle_click_flipped(self, mx, my):
+	def handle_click_flipped(self, mx, my, game_state):
 		x = 7 - (mx // self.square_width)
 		y = 7 - (my // self.square_height)
 		if x < 0 or x > 7 or y < 0 or y > 7:
@@ -151,7 +151,7 @@ class Board:
 			from_pos = self.selected_piece.pos
 			dest_piece = clicked_square.occupying_piece
 			moving_piece = self.selected_piece
-			if moving_piece.move(self, clicked_square):
+			if moving_piece.move(self, clicked_square, game_state):
 				flag = FLAG_CAPTURE if dest_piece is not None and dest_piece.color != moving_piece.color else FLAG_QUIET
 				if moving_piece.notation == 'K':
 					dx = clicked_square.x - from_pos[0]
@@ -287,18 +287,96 @@ class Board:
 		bitboards[OCCUPIED] = bitboards[W_PIECES] |bitboards[B_PIECES]
 
 		return bitboards
+	
+	def update_from_bitboards(self, bitboards):
+        # Remove all pieces from the board first
+		for square in self.squares:
+			square.occupying_piece = None
+
+        # Define a mapping from piece symbols to their corresponding classes and colors
+		mapping = {
+            W_PAWN: (Pawn, 'white'), W_KNIGHT: (Knight, 'white'), 
+            W_BISHOP: (Bishop, 'white'), W_ROOK: (Rook, 'white'), 
+            W_QUEEN: (Queen, 'white'), W_KING: (King, 'white'),
+            B_PAWN: (Pawn, 'black'), B_KNIGHT: (Knight, 'black'), 
+            B_BISHOP: (Bishop, 'black'), B_ROOK: (Rook, 'black'), 
+            B_QUEEN: (Queen, 'black'), B_KING: (King, 'black')
+        }
+
+		for symbol, (PieceClass, color) in mapping.items():
+			board_val = bitboards.get(symbol, 0)
+			while board_val:
+				lsb_index = (board_val & -board_val).bit_length() - 1
+				
+				x = lsb_index % 8
+				y = 7 - (lsb_index // 8)
+
+				square = self.get_square_from_pos((x, y))
+				if square:
+					square.occupying_piece = PieceClass(
+						(x, y),
+						color,
+						self
+					)
+
+				board_val &= (board_val - 1)
+
+		if self.is_flipped:
+			self.apply_view(True)
 
 	# This function will be for the evaluation function to quickly access piece values without bitboard manipulation during capturing or evaluation
  	# It will be a 64-length array with the value of the piece on each square, or 0 if it's empty
-	# TODO: Implement piece values
 	def get_pieces_array(self):
-		pass
+		pieces_arr = [None] * 64
+		piece_to_symbol = {
+			'Pawn': W_PAWN, 'Knight': W_KNIGHT, 'Bishop': W_BISHOP,
+			'Rook': W_ROOK, 'Queen': W_QUEEN, 'King': W_KING
+		}
 
-	def draw(self, display):
+		for square in self.squares:
+			piece = square.occupying_piece
+			if piece:
+				idx = (7 - square.y) * 8 + square.x
+				symbol = piece_to_symbol.get(piece.__class__.__name__)
+				if symbol is not None:
+					pieces_arr[idx] = symbol.lower() if piece.color == BLACK else symbol
+		return pieces_arr
+
+	def update_piece_positions(self, piece_values):
+		for square in self.squares:
+			square.occupying_piece = None
+
+		symbol_to_class = {
+			W_PAWN: Pawn, W_KNIGHT: Knight, W_BISHOP: Bishop,
+			W_ROOK: Rook, W_QUEEN: Queen, W_KING: King,
+			B_PAWN: Pawn, B_KNIGHT: Knight, B_BISHOP: Bishop,
+			B_ROOK: Rook, B_QUEEN: Queen, B_KING: King,
+		}
+
+		for idx, symbol in enumerate(piece_values):
+			if symbol is None:
+				continue
+			x = idx % 8
+			y = 7 - (idx // 8)
+			piece_class = symbol_to_class.get(symbol)
+			if piece_class is None:
+				continue
+			color = WHITE if symbol.isupper() else BLACK
+			square = self.get_square_from_pos((x, y))
+			if square:
+				square.occupying_piece = piece_class((x, y), color, self)
+
+		if self.is_flipped:
+			self.apply_view(True)
+
+	def draw(self, display, game_state):
 		if self.selected_piece is not None:
 			self.get_square_from_pos(self.selected_piece.pos).highlight = True
-			for square in self.selected_piece.get_valid_moves(self):
-				square.highlight = True
+			target_positions = [move[1] for move in game_state.get_strictly_legal_moves(self.turn) if move[0] == self.selected_piece.get_index_from_pos()]
+			for pos in target_positions:
+				square = self.get_square_from_pos((pos % 8, 7 - (pos // 8)))
+				if square:
+					square.highlight = True
 
 		for square in self.squares:
 			square.draw(display)

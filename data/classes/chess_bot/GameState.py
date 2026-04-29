@@ -7,243 +7,180 @@ class GameState:
         self.board = bitboards
         self.piece_values = pieces_array
         self.castling_rights = 15
+        self.en_passant_sq = None
         self.state_history = []
         
-    def make_move(self, board, move, color):
-        if move is None:
-            return
+        # Reference table for quickly checking castling rights
+        self.castling_update_table = [15] * 64  # 1111
+
+        # White
+        self.castling_update_table[7] &= ~WK_RIGHT
+        self.castling_update_table[0] &= ~WQ_RIGHT
+        self.castling_update_table[4] &= ~(WK_RIGHT | WQ_RIGHT)
+
+        # Black
+        self.castling_update_table[63] &= ~BK_RIGHT
+        self.castling_update_table[56] &= ~BQ_RIGHT
+        self.castling_update_table[60] &= ~(BK_RIGHT | BQ_RIGHT)
+        
+    def _sync_from_board(self, board):
+        self.board = board.get_bitboards()
+        self.piece_values = board.get_pieces_array()
+
+    def make_move(self, move, color, board=None):
+        if board is not None:
+            self._sync_from_board(board)
 
         from_sq, to_sq, flag = move
-
-        from_pos = self.square_index_to_pos(from_sq)
-        to_pos = self.square_index_to_pos(to_sq)
-        from_square = board.get_square_from_pos(from_pos)
-        to_square = board.get_square_from_pos(to_pos)
-
-        moving_piece = from_square.occupying_piece if from_square else None
-        captured_piece = to_square.occupying_piece if to_square else None
-
-        rook_snapshot = None
-        if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
-            if color == WHITE:
-                rook_from_pos = (7, 0) if flag == FLAG_CASTLE_KS else (0, 0)
-                rook_to_pos = (5, 0) if flag == FLAG_CASTLE_KS else (3, 0)
-            else:
-                rook_from_pos = (7, 7) if flag == FLAG_CASTLE_KS else (0, 7)
-                rook_to_pos = (5, 7) if flag == FLAG_CASTLE_KS else (3, 7)
-            rook_piece = board.get_piece_from_pos(rook_from_pos)
-            rook_snapshot = {
-                'piece': rook_piece,
-                'from_pos': rook_from_pos,
-                'to_pos': rook_to_pos,
-                'has_moved': rook_piece.has_moved if rook_piece else None
-            }
-
+        moving_piece = self.piece_values[from_sq]
+        captured_piece = self.piece_values[to_sq]
+        
         self.state_history.append({
-            'board': self.board.copy(),
-            'castling_rights': self.castling_rights,
-            'from_sq': from_sq,
-            'to_sq': to_sq,
-            'flag': flag,
-            'moving_piece': moving_piece,
-            'captured_piece': captured_piece,
-            'moving_piece_has_moved': moving_piece.has_moved if moving_piece else None,
-            'rook_snapshot': rook_snapshot
+            'move': move,
+            'color': color,
+            'captured': captured_piece,
+            'castling': self.castling_rights,
+            'en_passant': self.en_passant_sq
         })
 
-        self.board, self.castling_rights = self._simulate_move(
-            self.board,
-            move,
-            color,
-            self.castling_rights
-        )
+        # Moving pieces on the Bitboard
+        move_mask = (1 << from_sq) | (1 << to_sq)
+        self.board[moving_piece] ^= move_mask
+        
+        # Handling a capture
+        if flag == FLAG_CAPTURE:
+            self.board[captured_piece] &= ~(1 << to_sq)
+        
+        # update Piece Array
+        self.piece_values[to_sq] = moving_piece
+        self.piece_values[from_sq] = None
 
-        self._apply_move_to_board(board, from_sq, to_sq, flag)
+        # Handling Castling (Move the rook as well)
+        if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
+            r_from, r_to = self._get_rook_castle_sq(color, flag)
+            rook_piece = W_ROOK if color == WHITE else B_ROOK
+            rook_mask = (1 << r_from) | (1 << r_to)
+            self.board[rook_piece] ^= rook_mask
+            self.piece_values[r_to] = rook_piece
+            self.piece_values[r_from] = None
 
-    def undo_move(self, board):
+        # Update Castling Rights
+        self.castling_rights &= self.castling_update_table[from_sq]
+        self.castling_rights &= self.castling_update_table[to_sq]
+
+        # Update Bitboard (Incremental)
+        self._update_summary_boards_incrementally(from_sq, to_sq, moving_piece, captured_piece, color, flag)
+        if board is not None:
+            board.update_piece_positions(self.piece_values)  # Đồng bộ lại với Board để vẽ đúng
+
+    def undo_move(self, board=None):
         if not self.state_history:
             return
 
-        last_state = self.state_history.pop()
-        self.board = last_state['board']
-        self.castling_rights = last_state['castling_rights']
+        state = self.state_history.pop()
+        from_sq, to_sq, flag = state['move']
+        captured_piece = state['captured']
+        moving_piece = self.piece_values[to_sq]
+        color = WHITE if moving_piece.isupper() else BLACK
 
-        from_pos = self.square_index_to_pos(last_state['from_sq'])
-        to_pos = self.square_index_to_pos(last_state['to_sq'])
-        from_square = board.get_square_from_pos(from_pos)
-        to_square = board.get_square_from_pos(to_pos)
-
-        if from_square is None or to_square is None:
-            return
-
-        moving_piece = last_state['moving_piece']
-        captured_piece = last_state['captured_piece']
-
-        if moving_piece is not None:
-            moving_piece.pos = from_pos
-            moving_piece.x, moving_piece.y = from_pos
-            moving_piece.has_moved = last_state['moving_piece_has_moved']
-
-        to_square.occupying_piece = captured_piece
-        from_square.occupying_piece = moving_piece
-
+        # Reverse the move on the Bitboard
+        self.board[moving_piece] ^= (1 << from_sq) | (1 << to_sq)
+        
+        # Restore captured piece if there was one
         if captured_piece is not None:
-            captured_piece.pos = to_pos
-            captured_piece.x, captured_piece.y = to_pos
-
-        if last_state['flag'] in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
-            rook_snapshot = last_state['rook_snapshot']
-            if rook_snapshot and rook_snapshot['piece'] is not None:
-                rook_piece = rook_snapshot['piece']
-                rook_from_square = board.get_square_from_pos(rook_snapshot['from_pos'])
-                rook_to_square = board.get_square_from_pos(rook_snapshot['to_pos'])
-
-                rook_piece.pos = rook_snapshot['from_pos']
-                rook_piece.x, rook_piece.y = rook_snapshot['from_pos']
-                rook_piece.has_moved = rook_snapshot['has_moved']
-
-                rook_from_square.occupying_piece = rook_piece
-                rook_to_square.occupying_piece = None
-
-    def _get_piece_at(self, bitboards, square_index):
-        for piece in [W_PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING,
-                      B_PAWN, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING]:
-            if bitboards[piece] & (1 << square_index):
-                return piece
-        return None
-
-    def _get_king_square(self, bitboards, color):
-        king_board = bitboards[W_KING] if color == WHITE else bitboards[B_KING]
-        return (king_board & -king_board).bit_length() - 1
-
-    def _update_summary_boards(self, bitboards):
-        bitboards[W_PIECES] = (
-            bitboards[W_PAWN] | bitboards[W_KNIGHT] | bitboards[W_BISHOP] |
-            bitboards[W_ROOK] | bitboards[W_QUEEN] | bitboards[W_KING]
-        )
-        bitboards[B_PIECES] = (
-            bitboards[B_PAWN] | bitboards[B_KNIGHT] | bitboards[B_BISHOP] |
-            bitboards[B_ROOK] | bitboards[B_QUEEN] | bitboards[B_KING]
-        )
-        bitboards[OCCUPIED] = bitboards[W_PIECES] | bitboards[B_PIECES]
-
-    def _simulate_move(self, bitboards, move, color, castling_rights):
-        from_sq, to_sq, flag = move
-        new_board = bitboards.copy()
-        moving_piece = self._get_piece_at(new_board, from_sq)
-        if moving_piece is None:
-            return new_board, castling_rights
-
-        # Remove the moving piece from its source square
-        new_board[moving_piece] &= ~(1 << from_sq)
-
-        # Handle capture
-        if flag == FLAG_CAPTURE:
-            enemy_piece_types = [W_PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING] if color == BLACK else [B_PAWN, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING]
-            for piece_type in enemy_piece_types:
-                if new_board[piece_type] & (1 << to_sq):
-                    new_board[piece_type] &= ~(1 << to_sq)
-                    break
-
-        # Place the moving piece on the destination square
-        if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
-            new_board[moving_piece] |= (1 << to_sq)
-            if color == WHITE:
-                if flag == FLAG_CASTLE_KS:
-                    rook_from, rook_to = 7, 5
-                else:
-                    rook_from, rook_to = 0, 3
-                rook_piece = W_ROOK
-            else:
-                if flag == FLAG_CASTLE_KS:
-                    rook_from, rook_to = 63, 61
-                else:
-                    rook_from, rook_to = 56, 59
-                rook_piece = B_ROOK
-            new_board[rook_piece] &= ~(1 << rook_from)
-            new_board[rook_piece] |= (1 << rook_to)
+            self.board[captured_piece] |= (1 << to_sq)
+            self.piece_values[to_sq] = captured_piece
         else:
-            new_board[moving_piece] |= (1 << to_sq)
+            self.piece_values[to_sq] = None
+        
+        self.piece_values[from_sq] = moving_piece
 
-        # Update castling rights
-        if moving_piece == W_KING:
-            castling_rights &= ~(WK_RIGHT | WQ_RIGHT)
-        elif moving_piece == B_KING:
-            castling_rights &= ~(BK_RIGHT | BQ_RIGHT)
-        elif moving_piece == W_ROOK:
-            if from_sq == 7:
-                castling_rights &= ~WK_RIGHT
-            elif from_sq == 0:
-                castling_rights &= ~WQ_RIGHT
-        elif moving_piece == B_ROOK:
-            if from_sq == 63:
-                castling_rights &= ~BK_RIGHT
-            elif from_sq == 56:
-                castling_rights &= ~BQ_RIGHT
+        # Reverse the castling move
+        if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
+            r_from, r_to = self._get_rook_castle_sq(color, flag)
+            rook_piece = W_ROOK if color == WHITE else B_ROOK
+            self.board[rook_piece] ^= (1 << r_from) | (1 << r_to)
+            self.piece_values[r_from] = rook_piece
+            self.piece_values[r_to] = None
 
-        if flag == FLAG_CAPTURE:
-            if color == WHITE and to_sq in {56, 63}:
-                if to_sq == 56:
-                    castling_rights &= ~BQ_RIGHT
-                else:
-                    castling_rights &= ~BK_RIGHT
-            elif color == BLACK and to_sq in {0, 7}:
-                if to_sq == 0:
-                    castling_rights &= ~WQ_RIGHT
-                else:
-                    castling_rights &= ~WK_RIGHT
+        # Restrore castling rights and en passant square
+        self.castling_rights = state['castling']
+        self.en_passant_sq = state['en_passant']
+        self._full_update_summary_boards()
+        if board is not None:
+            board.update_piece_positions(self.piece_values) # update board to draw correctly after undo
 
-        self._update_summary_boards(new_board)
-        return new_board, castling_rights
+    def _update_summary_boards_incrementally(self, f, t, p, cap, color, flag):
+        """Update the summary bitboards (W_PIECES, B_PIECES, OCCUPIED) based on a single move without needing to recalculate everything."""
+        side_board = W_PIECES if color == WHITE else B_PIECES
+        enemy_board = B_PIECES if color == WHITE else W_PIECES
+        
+        mask = (1 << f) | (1 << t)
+        if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
+            r_from, r_to = self._get_rook_castle_sq(color, flag)
+            mask |= (1 << r_from) | (1 << r_to)
 
-    def square_index_to_pos(self, square_index):
-        x = square_index % 8
-        y = 7 - (square_index // 8)
-        return x, y
+        self.board[side_board] ^= mask
+        
+        if cap is not None:
+            self.board[enemy_board] &= ~(1 << t)
+            
+        self.board[OCCUPIED] = self.board[W_PIECES] | self.board[B_PIECES]
 
-    def pos_to_square_index(self, pos):
-        x, y = pos
-        return (7 - y) * 8 + x
-
-    def _apply_move_to_board(self, board, from_sq, to_sq, flag):
-        from_pos = self.square_index_to_pos(from_sq)
-        to_pos = self.square_index_to_pos(to_sq)
-
-        from_square = board.get_square_from_pos(from_pos)
-        to_square = board.get_square_from_pos(to_pos)
-
-        if from_square is None or to_square is None:
-            return
-
-        moving_piece = from_square.occupying_piece
-        if moving_piece is None:
-            return
-
-        # Force the board move so AI and engine state stay in sync.
-        moving_piece.moving(board, to_square, force=True)
+    def _get_rook_castle_sq(self, color, flag):
+        if color == WHITE:
+            return (7, 5) if flag == FLAG_CASTLE_KS else (0, 3)
+        return (63, 61) if flag == FLAG_CASTLE_KS else (56, 59)
 
     def _castle_path_safe(self, color, flag):
         enemy_color = BLACK if color == WHITE else WHITE
         if color == WHITE:
-            path = [4, 5, 6] if flag == FLAG_CASTLE_KS else [4, 3, 2]
+            if flag == FLAG_CASTLE_KS:
+                path_squares = (4, 5, 6)
+            else:
+                path_squares = (4, 3, 2)
         else:
-            path = [60, 61, 62] if flag == FLAG_CASTLE_KS else [60, 59, 58]
-        return not any(is_square_attacked(square, enemy_color, self.board) for square in path)
+            if flag == FLAG_CASTLE_KS:
+                path_squares = (60, 61, 62)
+            else:
+                path_squares = (60, 59, 58)
+
+        for sq in path_squares:
+            if is_square_attacked(sq, enemy_color, self.board):
+                return False
+        return True
 
     def get_strictly_legal_moves(self, color):
-        pseudo_legal_moves = generate_all_moves(self.board, color, self.castling_rights)
-        strictly_legal = []
+        pseudo_moves = generate_all_moves(self.board, color, self.castling_rights)
+        legal_moves = []
         enemy_color = BLACK if color == WHITE else WHITE
+        
+        king_bitboard = self.board[W_KING] if color == WHITE else self.board[B_KING]
+        king_sq = (king_bitboard & -king_bitboard).bit_length() - 1
 
-        for move in pseudo_legal_moves:
-            _, _, flag = move
+        for move in pseudo_moves:
+            from_sq, to_sq, flag = move
+            
+            # Check castling legality before trying the move
+            if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
+                if not self._castle_path_safe(color, flag):
+                    continue
 
-            if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS) and not self._castle_path_safe(color, flag):
-                continue
+            self.make_move(move, color)
+            
+            new_king_sq = to_sq if from_sq == king_sq else king_sq
+            
+            if not is_square_attacked(new_king_sq, enemy_color, self.board):
+                legal_moves.append(move)
+            
+            self.undo_move(None)
+            
+        return legal_moves
 
-            new_board, new_castling = self._simulate_move(self.board, move, color, self.castling_rights)
-            king_square = self._get_king_square(new_board, color)
-            if not is_square_attacked(king_square, enemy_color, new_board):
-                strictly_legal.append(move)
-
-        return strictly_legal
+    def _full_update_summary_boards(self):
+        # Only use when really need to recalculate everything
+        self.board[W_PIECES] = (self.board[W_PAWN] | self.board[W_KNIGHT] | self.board[W_BISHOP] |
+                                self.board[W_ROOK] | self.board[W_QUEEN] | self.board[W_KING])
+        self.board[B_PIECES] = (self.board[B_PAWN] | self.board[B_KNIGHT] | self.board[B_BISHOP] |
+                                self.board[B_ROOK] | self.board[B_QUEEN] | self.board[B_KING])
+        self.board[OCCUPIED] = self.board[W_PIECES] | self.board[B_PIECES]

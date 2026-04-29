@@ -19,16 +19,15 @@ class PvPState(State):
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
-                move_tuple = self.board.handle_click(mx, my)
+                move_tuple = self.board.handle_click(mx, my, self.game_state)
                 if move_tuple:
-                    self.game_state.make_move(self.board, move_tuple, self.board.turn)
+                    self.game_state.make_move(move_tuple, self.board.turn, self.board)
                     self.board.turn = 'white' if self.board.turn == 'black' else 'black'
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_d:
                     # Debug: Visualize bitboard for a piece type
                     bitboard_visualize(self.board.get_bitboards())
                 if event.key == pygame.K_z:
-                    print(f"the last state: {self.game_state.state_history[-1]['from_sq']} to {self.game_state.state_history[-1]['to_sq'] if self.game_state.state_history else 'No moves made yet.'}")
                     self.game_state.undo_move(self.board)
                     self.board.turn = 'white' if self.board.turn == 'black' else 'black'
 
@@ -42,4 +41,4 @@ class PvPState(State):
 
     def draw(self, surface):
         surface.fill('white')
-        self.board.draw(surface)
+        self.board.draw(surface, self.game_state)
