@@ -114,12 +114,26 @@ class Board:
 				if clicked_square.occupying_piece.color == self.turn:
 					self.selected_piece = clicked_square.occupying_piece
 
-		elif self.selected_piece.move(self, clicked_square):
-			self.turn = 'white' if self.turn == 'black' else 'black'
+		else:
+			from_pos = self.selected_piece.pos
+			dest_piece = clicked_square.occupying_piece
+			moving_piece = self.selected_piece
+			if moving_piece.move(self, clicked_square):
+				flag = FLAG_CAPTURE if dest_piece is not None and dest_piece.color != moving_piece.color else FLAG_QUIET
+				if moving_piece.notation == 'K':
+					dx = clicked_square.x - from_pos[0]
+					if dx == 2:
+						flag = FLAG_CASTLE_KS
+					elif dx == -2:
+						flag = FLAG_CASTLE_QS
 
-		elif clicked_square.occupying_piece is not None:
-			if clicked_square.occupying_piece.color == self.turn:
-				self.selected_piece = clicked_square.occupying_piece
+				from_sq = (7 - from_pos[1]) * 8 + from_pos[0]
+				to_sq = (7 - clicked_square.y) * 8 + clicked_square.x
+				return (from_sq, to_sq, flag)
+
+			elif clicked_square.occupying_piece is not None:
+				if clicked_square.occupying_piece.color == self.turn:
+					self.selected_piece = clicked_square.occupying_piece
 
 	def handle_click_flipped(self, mx, my):
 		x = 7 - (mx // self.square_width)
@@ -133,12 +147,26 @@ class Board:
 				if clicked_square.occupying_piece.color == self.turn:
 					self.selected_piece = clicked_square.occupying_piece
 
-		elif self.selected_piece.move(self, clicked_square):
-			self.turn = 'white' if self.turn == 'black' else 'black'
+		else:
+			from_pos = self.selected_piece.pos
+			dest_piece = clicked_square.occupying_piece
+			moving_piece = self.selected_piece
+			if moving_piece.move(self, clicked_square):
+				flag = FLAG_CAPTURE if dest_piece is not None and dest_piece.color != moving_piece.color else FLAG_QUIET
+				if moving_piece.notation == 'K':
+					dx = clicked_square.x - from_pos[0]
+					if dx == 2:
+						flag = FLAG_CASTLE_KS
+					elif dx == -2:
+						flag = FLAG_CASTLE_QS
 
-		elif clicked_square.occupying_piece is not None:
-			if clicked_square.occupying_piece.color == self.turn:
-				self.selected_piece = clicked_square.occupying_piece
+				from_sq = (7 - from_pos[1]) * 8 + from_pos[0]
+				to_sq = (7 - clicked_square.y) * 8 + clicked_square.x
+				return (from_sq, to_sq, flag)
+
+			elif clicked_square.occupying_piece is not None:
+				if clicked_square.occupying_piece.color == self.turn:
+					self.selected_piece = clicked_square.occupying_piece
 
 	def apply_view(self, is_flipped):
 		self.is_flipped = is_flipped

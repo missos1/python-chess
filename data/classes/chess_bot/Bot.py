@@ -2,7 +2,7 @@ from .GameState import *
 from.constants import *
 
 class Bot:
-    def __init__(self, depth=1, color=WHITE):
+    def __init__(self, depth=DEPTH, color=WHITE):
         self.depth = depth
         self.color = color
     

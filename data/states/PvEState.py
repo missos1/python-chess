@@ -1,5 +1,7 @@
 import pygame
 import random
+from data.classes.chess_bot.GameState import GameState
+from data.classes.chess_bot.Bot import Bot
 from data.states.State import State
 from data.classes.Board import Board
 from data.classes.chess_bot.constants import *
@@ -10,13 +12,16 @@ class PvEState(State):
     def __init__(self, manager):
         super().__init__(manager)
         self.board = None
-        self.player_color = None
+        self.bot = None
+        self.game_state = None
         self.game_over = False
 
     def on_enter(self) -> None:
         # Fresh board and random color assignment on load
-        self.player_color = random.choice(['white', 'black'])
+        self.player_color = random.choice(['white'])
         self.board = Board(600, 600, is_flipped=(self.player_color == 'black'))
+        self.bot = Bot(color='white' if self.player_color == 'black' else 'black')
+        self.game_state = GameState(self.board.get_bitboards(), self.board.get_pieces_array())
         self.game_over = False
         print(f"PvE Started! You are playing as {self.player_color}.")
         
@@ -30,15 +35,29 @@ class PvEState(State):
                 # Only let player click if it is currently their turn
                 if self.board.turn == self.player_color:
                     mx, my = event.pos
+                    move_tuple = None
                     if self.board.is_flipped:
-                        self.board.handle_click_flipped(mx, my)
+                        move_tuple = self.board.handle_click_flipped(mx, my)
                     else:
-                        self.board.handle_click(mx, my)
+                        move_tuple = self.board.handle_click(mx, my)
+
+                    if move_tuple:
+                        self.game_state.make_move(self.board, move_tuple, color=self.player_color)
+                        self.board.turn = 'white' if self.board.turn == 'black' else 'black'
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_d:
                     # Debug: Visualize bitboard for a piece type
                     bitboard_visualize(self.board.get_bitboards())
-                    
+                if event.key == pygame.K_z:
+                    if not self.game_state.state_history:
+                        print("No moves made yet.")
+                    else:
+                        print(f"the last state: {self.game_state.state_history[-1]['from_sq']} to {self.game_state.state_history[-1]['to_sq'] if self.game_state.state_history else 'No moves made yet.'}")
+                        self.game_state.undo_move(self.board)
+                        self.board.turn = 'white' if self.board.turn == 'black' else 'black'
+                        print(f"the last state: {self.game_state.state_history[-1]['from_sq']} to {self.game_state.state_history[-1]['to_sq'] if self.game_state.state_history else 'No moves made yet.'}")
+                        self.game_state.undo_move(self.board)
+                        self.board.turn = 'white' if self.board.turn == 'black' else 'black'
 
     def update(self):
         if self.game_over:
@@ -56,34 +75,26 @@ class PvEState(State):
             return
 
         # If it is not the player's turn, instantly trigger the bot
-        if self.board.turn != self.player_color:
+        if self.board.turn != self.player_color and not self.game_over:
             self.run_bot_move()
 
     def run_bot_move(self):
         # TODO: Add Model prediction here. 
         # Integrate the AI model to calculate and return the best move on self.board. 
         
-        bot_color = 'white' if self.player_color == 'black' else 'black'
+        self.bot.color = 'white' if self.player_color == 'black' else 'black'
+        # get the current board state in bitboard format and update the game state
+        self.game_state.board = self.board.get_bitboards()
         
         # --- Temporarily use a random move to prevent soft locks during testing ---
         # NOTE: Remove this stubbed logic once the model provides a move!
-        valid_moves = []
-        for square in self.board.squares:
-            piece = square.occupying_piece
-            if piece and piece.color == bot_color:
-                moves = piece.get_valid_moves(self.board)
-                for move_square in moves:
-                    valid_moves.append((piece, move_square))
-                    
-        if valid_moves:
-            piece, move_square = random.choice(valid_moves)
-            # The .move() function returns True if valid execution
-            if piece.move(self.board, move_square):
-                # Switch turn back to the player manually after bot hits move
-                self.board.turn = self.player_color
-        else:
-            # No valid moves edge case (Should be covered by checkmate checks normally)
-            pass
+        valid_moves = self.game_state.get_strictly_legal_moves(self.bot.color)
+        AI_move = random.choice(valid_moves) if valid_moves else None
+        for move in valid_moves:
+            print(f"Valid move: {move}")
+        print(f"Move from {AI_move[0]} to {AI_move[1]}")
+        self.game_state.make_move(self.board, AI_move, self.bot.color)
+        self.board.turn = 'white' if self.board.turn == 'black' else 'black'
 
     def draw(self, surface):
         surface.fill('white')
