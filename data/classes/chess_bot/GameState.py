@@ -57,7 +57,7 @@ class GameState:
 
         # Handling Castling (Move the rook as well)
         if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
-            r_from, r_to = self._get_rook_castle_sq(color, flag)
+            r_from, r_to = self.get_rook_castle_sq(color, flag)
             rook_piece = W_ROOK if color == WHITE else B_ROOK
             rook_mask = (1 << r_from) | (1 << r_to)
             self.board[rook_piece] ^= rook_mask
@@ -97,7 +97,7 @@ class GameState:
 
         # Reverse the castling move
         if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
-            r_from, r_to = self._get_rook_castle_sq(color, flag)
+            r_from, r_to = self.get_rook_castle_sq(color, flag)
             rook_piece = W_ROOK if color == WHITE else B_ROOK
             self.board[rook_piece] ^= (1 << r_from) | (1 << r_to)
             self.piece_values[r_from] = rook_piece
@@ -117,7 +117,7 @@ class GameState:
         
         mask = (1 << f) | (1 << t)
         if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
-            r_from, r_to = self._get_rook_castle_sq(color, flag)
+            r_from, r_to = self.get_rook_castle_sq(color, flag)
             mask |= (1 << r_from) | (1 << r_to)
 
         self.board[side_board] ^= mask
