@@ -84,13 +84,7 @@ class PvEState(State):
         # get the current board state in bitboard format and update the game state
         self.game_state.board = self.board.get_bitboards()
         
-        # --- Temporarily use a random move to prevent soft locks during testing ---
-        # NOTE: Remove this stubbed logic once the model provides a move!
-        valid_moves = self.game_state.get_strictly_legal_moves(self.bot.color)
-        AI_move = random.choice(valid_moves) if valid_moves else None
-        for move in valid_moves:
-            print(f"Valid move: {move}")
-        print(f"Move from {AI_move[0]} to {AI_move[1]}")
+        AI_move = self.bot.get_best_move(self.board, self.game_state)
         self.game_state.make_move(AI_move, self.bot.color, self.board)
         self.board.turn = 'white' if self.board.turn == 'black' else 'black'
 
