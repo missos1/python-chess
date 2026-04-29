@@ -10,7 +10,7 @@ def get_set_bits(bitboard):
 		yield lsb.bit_length() - 1
 		bitboard &= bitboard - 1
   
-def get_pawns_moves(bitboards, color):
+def get_pawns_moves(bitboards, color, en_passant_target=None):
     moves = []
     
     occupied = bitboards[OCCUPIED]
@@ -25,7 +25,10 @@ def get_pawns_moves(bitboards, color):
             single_push = pawn + 8
             
             if (1 << single_push) & empty:
-                moves.append((pawn, single_push, FLAG_QUIET))
+                if single_push >= 56:
+                    moves.append((pawn, single_push, FLAG_PROMOTION))
+                else:    
+                    moves.append((pawn, single_push, FLAG_QUIET))
                 
                 if pawn // 8 == 1: 				# Only pawns on the 2nd rank can do a double push
                     double_push = pawn + 16 	# Only possible from the 2nd rank (indices 8-15)
@@ -35,7 +38,15 @@ def get_pawns_moves(bitboards, color):
             captures_board = WHITE_PAWN_CAPTURES[pawn] & enemies
             
             for target in get_set_bits(captures_board):
-                moves.append((pawn, target, FLAG_CAPTURE))
+                if target >= 56:
+                    moves.append((pawn, target, FLAG_PROMOTION))
+                else:
+                    moves.append((pawn, target, FLAG_CAPTURE))
+                    
+            if en_passant_target is not None:
+                ep_board = WHITE_PAWN_CAPTURES[pawn] & (1 << en_passant_target)
+                if ep_board:
+                    moves.append((pawn, en_passant_target, FLAG_EN_PASSANT))
 
     else:
         pawns = bitboards[B_PAWN]
@@ -45,7 +56,10 @@ def get_pawns_moves(bitboards, color):
             single_push = pawn - 8
             
             if (1 << single_push) & empty:
-                moves.append((pawn, single_push, FLAG_QUIET))
+                if single_push <= 7:
+                    moves.append((pawn, single_push, FLAG_PROMOTION))
+                else:    
+                    moves.append((pawn, single_push, FLAG_QUIET))
                 
                 if pawn // 8 == 6:
                     double_push = pawn - 16
@@ -55,8 +69,15 @@ def get_pawns_moves(bitboards, color):
             captures_board = BLACK_PAWN_CAPTURES[pawn] & enemies
             
             for target in get_set_bits(captures_board):
-                moves.append((pawn, target, FLAG_CAPTURE))
-
+                if target <= 7:
+                    moves.append((pawn, target, FLAG_PROMOTION))
+                else:
+                    moves.append((pawn, target, FLAG_CAPTURE))
+                    
+            if en_passant_target is not None:
+                ep_board = BLACK_PAWN_CAPTURES[pawn] & (1 << en_passant_target)
+                if ep_board:
+                    moves.append((pawn, en_passant_target, FLAG_EN_PASSANT))
     return moves
 
 def get_knights_moves(bitboards, color):
@@ -91,6 +112,9 @@ def get_king_moves(bitboards, color, castling_rights):
 
     if color == WHITE:
         king_board = bitboards[W_KING]
+        if king_board == 0:
+            return moves
+            
         friendly_pieces = bitboards[W_PIECES]
         enemies = bitboards[B_PIECES]
         
@@ -116,6 +140,9 @@ def get_king_moves(bitboards, color, castling_rights):
 
     else:
         king_board = bitboards[B_KING]
+        if king_board == 0:
+            return moves
+            
         friendly_pieces = bitboards[B_PIECES]
         enemies = bitboards[W_PIECES]
         
@@ -170,12 +197,45 @@ def get_bishops_moves(bitboards, color):
 def get_queens_moves(bitboards, color):
 	return _get_sliding_pieces_moves(bitboards, color, W_QUEEN, B_QUEEN, queen_moves)
 
-def generate_all_moves(bitboards, color, castling_rights):
+def generate_all_moves(bitboards, color, castling_rights, en_passant_target=None):
 	moves = []
-	moves.extend(get_pawns_moves(bitboards, color))
+	moves.extend(get_pawns_moves(bitboards, color, en_passant_target))
 	moves.extend(get_knights_moves(bitboards, color))
 	moves.extend(get_king_moves(bitboards, color, castling_rights))
 	moves.extend(get_rooks_moves(bitboards, color))
 	moves.extend(get_bishops_moves(bitboards, color))
 	moves.extend(get_queens_moves(bitboards, color))
 	return moves
+
+def create_piece_array_from_bitboards(bitboards):
+    # 1. Create an empty board of 64 squares (filled with 0s)
+    piece_array = [EMPTY] * 64
+    
+    # 2. Map your bitboard dictionary keys to the new Piece IDs
+    # (Adjust the left side if your dictionary keys are strings like 'P', 'N', etc.)
+    piece_mapping = {
+        W_PAWN: W_PAWN_VALUE,
+        W_KNIGHT: W_KNIGHT_VALUE,
+        W_BISHOP: W_BISHOP_VALUE,
+        W_ROOK: W_ROOK_VALUE,
+        W_QUEEN: W_QUEEN_VALUE,
+        W_KING: W_KING_VALUE,
+        
+        B_PAWN: B_PAWN_VALUE,
+        B_KNIGHT: B_KNIGHT_VALUE,
+        B_BISHOP: B_BISHOP_VALUE,
+        B_ROOK: B_ROOK_VALUE,
+        B_QUEEN: B_QUEEN_VALUE,
+        B_KING: B_KING_VALUE
+    }
+    
+    # 3. Populate the array
+    for dict_key, piece_id in piece_mapping.items():
+        # Get the 64-bit integer for this piece type
+        board = bitboards[dict_key] 
+        
+        # Unpack the bitboard into square indices (0 to 63)
+        for square in get_set_bits(board):
+            piece_array[square] = piece_id
+            
+    return piece_array

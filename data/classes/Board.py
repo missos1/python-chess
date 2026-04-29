@@ -19,6 +19,7 @@ class Board:
 		self.selected_piece = None
 		self.turn = 'white'
 		self.is_flipped = is_flipped
+		self.en_passant_target = None
 
 		self.config = [
 			['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
@@ -114,12 +115,17 @@ class Board:
 				if clicked_square.occupying_piece.color == self.turn:
 					self.selected_piece = clicked_square.occupying_piece
 
-		elif self.selected_piece.move(self, clicked_square):
-			self.turn = 'white' if self.turn == 'black' else 'black'
-
-		elif clicked_square.occupying_piece is not None:
-			if clicked_square.occupying_piece.color == self.turn:
-				self.selected_piece = clicked_square.occupying_piece
+		else:
+			old_y = self.selected_piece.y
+			if self.selected_piece.move(self, clicked_square):
+				if self.selected_piece.notation == ' ' and abs(self.selected_piece.y - old_y) == 2:
+					self.en_passant_target = (self.selected_piece.x, (self.selected_piece.y + old_y) // 2)
+				else:
+					self.en_passant_target = None
+				self.turn = 'white' if self.turn == 'black' else 'black'
+			elif clicked_square.occupying_piece is not None:
+				if clicked_square.occupying_piece.color == self.turn:
+					self.selected_piece = clicked_square.occupying_piece
 
 	def handle_click_flipped(self, mx, my):
 		x = 7 - (mx // self.square_width)
@@ -133,12 +139,17 @@ class Board:
 				if clicked_square.occupying_piece.color == self.turn:
 					self.selected_piece = clicked_square.occupying_piece
 
-		elif self.selected_piece.move(self, clicked_square):
-			self.turn = 'white' if self.turn == 'black' else 'black'
-
-		elif clicked_square.occupying_piece is not None:
-			if clicked_square.occupying_piece.color == self.turn:
-				self.selected_piece = clicked_square.occupying_piece
+		else:
+			old_y = self.selected_piece.y
+			if self.selected_piece.move(self, clicked_square):
+				if self.selected_piece.notation == ' ' and abs(self.selected_piece.y - old_y) == 2:
+					self.en_passant_target = (self.selected_piece.x, (self.selected_piece.y + old_y) // 2)
+				else:
+					self.en_passant_target = None
+				self.turn = 'white' if self.turn == 'black' else 'black'
+			elif clicked_square.occupying_piece is not None:
+				if clicked_square.occupying_piece.color == self.turn:
+					self.selected_piece = clicked_square.occupying_piece
 
 	def apply_view(self, is_flipped):
 		self.is_flipped = is_flipped
@@ -193,18 +204,12 @@ class Board:
 
 
 	def is_in_checkmate(self, color):
-		output = False
-  
 		for piece in [i.occupying_piece for i in self.squares]:
-			if piece != None:
-				if piece.notation == 'K' and piece.color == color:
-					king = piece
+			if piece != None and piece.color == color:
+				if piece.get_valid_moves(self) != []:
+					return False
 
-		if king.get_valid_moves(self) == []:
-			if self.is_in_check(color):
-				output = True
-
-		return output
+		return self.is_in_check(color)
 
 
 	def get_square_from_pos(self, pos):
@@ -274,3 +279,35 @@ class Board:
 
 		for square in self.squares:
 			square.draw(display)
+   
+	@property
+	def castling_rights(self):
+		rights = 0
+		
+		# Determine White's rights (Rank 1 -> y = 7 in Pygame coords)
+		white_king = self.get_piece_from_pos((4, 7))
+		if white_king is not None and white_king.notation == 'K' and not white_king.has_moved:
+			# Kingside Rook at H1 (7, 7)
+			w_kingside_rook = self.get_piece_from_pos((7, 7))
+			if w_kingside_rook is not None and w_kingside_rook.notation == 'R' and not w_kingside_rook.has_moved:
+				rights |= WK_RIGHT  # 8
+				
+			# Queenside Rook at A1 (0, 7)
+			w_queenside_rook = self.get_piece_from_pos((0, 7))
+			if w_queenside_rook is not None and w_queenside_rook.notation == 'R' and not w_queenside_rook.has_moved:
+				rights |= WQ_RIGHT  # 4
+				
+		# Determine Black's rights (Rank 8 -> y = 0 in Pygame coords)
+		black_king = self.get_piece_from_pos((4, 0))
+		if black_king is not None and black_king.notation == 'K' and not black_king.has_moved:
+			# Kingside Rook at H8 (7, 0)
+			b_kingside_rook = self.get_piece_from_pos((7, 0))
+			if b_kingside_rook is not None and b_kingside_rook.notation == 'R' and not b_kingside_rook.has_moved:
+				rights |= BK_RIGHT  # 2
+				
+			# Queenside Rook at A8 (0, 0)
+			b_queenside_rook = self.get_piece_from_pos((0, 0))
+			if b_queenside_rook is not None and b_queenside_rook.notation == 'R' and not b_queenside_rook.has_moved:
+				rights |= BQ_RIGHT  # 1
+				
+		return rights

@@ -1,16 +1,70 @@
+import time
 from .GameState import *
-from.constants import *
+from .constants import *
+from .evaluate import *
+from .search import negamax, quiescence_search, TimeOutException
 
 class Bot:
-    def __init__(self, depth=1, color=WHITE):
+    def __init__(self, depth=4, color=WHITE, time_limit=30):
         self.depth = depth
         self.color = color
-    
-    def get_best_move(self, state: GameState):
-        moves = state.get_strictly_legal_moves(self.color)
+        self.time_limit = time_limit
+        self.nodes_searched = 0
+        self.start_time = 0
         
-        for move in moves:
-            state.make_move(move)
-            # TODO: for the move selection logic using Negamax with Alpha-Beta pruning
-            state.undo_move(move)
-        pass
+        # TT stores {hash: (depth, score, flag, best_move)}
+        # flag: 0 = EXACT, 1 = ALPHA (upper bound), 2 = BETA (lower bound)
+        self.transposition_table = {}
+
+    def get_best_move(self, state):
+        self.nodes_searched = 0
+        self.start_time = time.time()
+        best_move = None
+        
+        legal_moves = state.get_strictly_legal_moves(self.color)
+        if not legal_moves:
+            return None
+            
+        legal_moves.sort(key=lambda m: score_move(m, state), reverse=True)
+        
+        # search_params = [nodes_searched, start_time, time_limit]
+        search_params = [0, self.start_time, self.time_limit]
+        tt = self.transposition_table
+        
+        # Iterative Deepening loop
+        for current_depth in range(1, self.depth + 1):
+            try:
+                alpha = -float('inf')
+                beta = float('inf')
+                depth_best_move = None
+                
+                # Bring the best move from the previous depth to the front to maximize Alpha-Beta snips
+                if best_move and best_move in legal_moves:
+                    legal_moves.remove(best_move)
+                    legal_moves.insert(0, best_move)
+                
+                for move in legal_moves:
+                    state.make_move(move)
+                    enemy_color = BLACK if self.color == WHITE else WHITE
+                    score = -negamax(current_depth - 1, state, -beta, -alpha, enemy_color, search_params, tt)
+                    state.undo_move(move)
+                    
+                    if score > alpha:
+                        alpha = score
+                        depth_best_move = move
+                        
+                if depth_best_move:
+                    best_move = depth_best_move
+                    
+                # If we've found a guaranteed, forced checkmate against the opponent, stop searching immediately!
+                if alpha > 90000:
+                    print(f"--> Found a forced Checkmate! Ending search early at depth {current_depth}.")
+                    break
+                    
+            except TimeOutException:
+                print(f"--> Aborting search! Max time limit ({self.time_limit}s) reached during depth {current_depth}.")
+                break
+                
+        self.nodes_searched = search_params[0]
+        print(f"Bot searched {self.nodes_searched} nodes. Best move: {best_move}")
+        return best_move

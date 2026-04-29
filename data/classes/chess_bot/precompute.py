@@ -1,4 +1,29 @@
+import random
 from .constants import *
+
+def precompute_zobrist_pieces():
+    random.seed(42)
+    table = []
+    for _ in range(13):
+        table.append([random.getrandbits(64) for _ in range(64)])
+    return table
+
+def precompute_zobrist_castling():
+    random.seed(142)
+    return [random.getrandbits(64) for _ in range(16)]
+
+def precompute_zobrist_turn():
+    random.seed(242)
+    return random.getrandbits(64)
+
+def precompute_zobrist_en_passant():
+    random.seed(342)
+    return [random.getrandbits(64) for _ in range(8)] 
+
+ZOBRIST_PIECES = precompute_zobrist_pieces()
+ZOBRIST_CASTLING = precompute_zobrist_castling()
+ZOBRIST_TURN = precompute_zobrist_turn()
+ZOBRIST_EN_PASSANT = precompute_zobrist_en_passant()
 
 def precompute_north_rays():
     rays = []
@@ -119,6 +144,7 @@ def precomputed_knight_moves():
         board |= (knight & NOT_H_FILE) >> 15 # Move 2 down, 1 right
         board |= (knight & NOT_AB_FILE) >> 10 # Move 1 down, 2 left
         board |= (knight & NOT_GH_FILE) >> 6 # Move 1 down, 2 right
+        board &= BOARD_MASK
         moves.append(board)
     return moves
 
@@ -135,6 +161,7 @@ def precomputed_king_moves():
         board |= (king & NOT_A_FILE) >> 9 # Move 1 down, 1 left
         board |= king >> 8 # Move 1 down
         board |= (king & NOT_H_FILE) >> 7 # Move 1 down, 1 right
+        board &= BOARD_MASK
         moves.append(board)
     return moves
 

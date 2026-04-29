@@ -1,1 +1,0 @@
-from data.classes.chess_bot.constants import *

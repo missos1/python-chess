@@ -1,5 +1,9 @@
 import pygame
 import random
+import threading
+import time
+from data.classes.chess_bot.Bot import Bot
+from data.classes.chess_bot.GameState import GameState
 from data.states.State import State
 from data.classes.Board import Board
 from data.classes.chess_bot.constants import *
@@ -12,6 +16,10 @@ class PvEState(State):
         self.board = None
         self.player_color = None
         self.game_over = False
+        self.bot_thinking = False
+        self.bot_move = None
+        self.bot_thread = None
+        self.thinking_start_time = 0
 
     def on_enter(self) -> None:
         # Fresh board and random color assignment on load
@@ -57,32 +65,70 @@ class PvEState(State):
 
         # If it is not the player's turn, instantly trigger the bot
         if self.board.turn != self.player_color:
-            self.run_bot_move()
+            if not self.bot_thinking:
+                self.start_bot_thinking()
+            elif self.bot_move is not None:
+                elapsed = time.time() - self.thinking_start_time
+                print(f"Bot finished thinking in {elapsed:.2f} seconds.")
+                self.execute_bot_move(self.bot_move)
+                self.bot_move = None
+                self.bot_thinking = False
 
-    def run_bot_move(self):
-        # TODO: Add Model prediction here. 
-        # Integrate the AI model to calculate and return the best move on self.board. 
+    def start_bot_thinking(self):
+        self.bot_thinking = True
+        self.thinking_start_time = time.time()
+        print("Bot is thinking...")
         
-        bot_color = 'white' if self.player_color == 'black' else 'black'
+        # Translate Pygame color strings to your mathematical integer constants
+        bot_color = WHITE if self.player_color == 'black' else BLACK
         
-        # --- Temporarily use a random move to prevent soft locks during testing ---
-        # NOTE: Remove this stubbed logic once the model provides a move!
-        valid_moves = []
-        for square in self.board.squares:
-            piece = square.occupying_piece
-            if piece and piece.color == bot_color:
-                moves = piece.get_valid_moves(self.board)
-                for move_square in moves:
-                    valid_moves.append((piece, move_square))
+        # --- 1. SETUP THE MATH SANDBOX ---
+        current_bitboards = self.board.get_bitboards()
+        pieces_array = create_piece_array_from_bitboards(current_bitboards)
+        
+        engine_state = GameState(current_bitboards, pieces_array)
+        # Using the property we defined in the Board class
+        engine_state.castling_rights = self.board.castling_rights 
+        
+        # --- 2. START THE BACKGROUND THREAD ---
+        def worker(state, color):
+            ai = Bot(depth=5, color=color)
+            # Store the computed move so the main loop can pick it up
+            self.bot_move = ai.get_best_move(state) 
+            
+            # Failsafe if it returns nothing (checkmate)
+            if self.bot_move is None:
+                self.bot_move = "NO_MOVE"
+
+        self.bot_thread = threading.Thread(target=worker, args=(engine_state, bot_color))
+        self.bot_thread.start()
+        
+    def execute_bot_move(self, best_move_tuple):
+        # --- 3. TRANSLATE AND EXECUTE ---
+        if best_move_tuple and best_move_tuple != "NO_MOVE":
+            source_idx, target_idx, flag = best_move_tuple
+            
+            # Reverse the bitboard index back to Pygame (x, y) coordinates
+            source_x = source_idx % 8
+            source_y = 7 - (source_idx // 8)
+            
+            target_x = target_idx % 8
+            target_y = 7 - (target_idx // 8)
+            
+            # Grab the physical Pygame objects
+            source_square = self.board.get_square_from_pos((source_x, source_y))
+            target_square = self.board.get_square_from_pos((target_x, target_y))
+            
+            piece = source_square.occupying_piece
+            
+            if piece:
+                # We use force=True because our mathematical Bot already verified 
+                # this move is 100% strictly legal!
+                if piece.move(self.board, target_square, force=True):
+                    self.board.turn = self.player_color
                     
-        if valid_moves:
-            piece, move_square = random.choice(valid_moves)
-            # The .move() function returns True if valid execution
-            if piece.move(self.board, move_square):
-                # Switch turn back to the player manually after bot hits move
-                self.board.turn = self.player_color
         else:
-            # No valid moves edge case (Should be covered by checkmate checks normally)
+            # If get_best_move returns None, the Bot is in Checkmate or Stalemate.
             pass
 
     def draw(self, surface):

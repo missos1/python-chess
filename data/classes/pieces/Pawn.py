@@ -54,6 +54,8 @@ class Pawn(Piece):
 				if square.occupying_piece != None:
 					if square.occupying_piece.color != self.color:
 						output.append(square)
+				elif hasattr(board, 'en_passant_target') and board.en_passant_target == (self.x + 1, self.y - 1):
+					output.append(square)
 			if self.x - 1 >= 0 and self.y - 1 >= 0:
 				square = board.get_square_from_pos(
 					(self.x - 1, self.y - 1)
@@ -61,6 +63,8 @@ class Pawn(Piece):
 				if square.occupying_piece != None:
 					if square.occupying_piece.color != self.color:
 						output.append(square)
+				elif hasattr(board, 'en_passant_target') and board.en_passant_target == (self.x - 1, self.y - 1):
+					output.append(square)
 
 		elif self.color == 'black':
 			if self.x + 1 < 8 and self.y + 1 < 8:
@@ -70,6 +74,8 @@ class Pawn(Piece):
 				if square.occupying_piece != None:
 					if square.occupying_piece.color != self.color:
 						output.append(square)
+				elif hasattr(board, 'en_passant_target') and board.en_passant_target == (self.x + 1, self.y + 1):
+					output.append(square)
 			if self.x - 1 >= 0 and self.y + 1 < 8:
 				square = board.get_square_from_pos(
 					(self.x - 1, self.y + 1)
@@ -77,6 +83,8 @@ class Pawn(Piece):
 				if square.occupying_piece != None:
 					if square.occupying_piece.color != self.color:
 						output.append(square)
+				elif hasattr(board, 'en_passant_target') and board.en_passant_target == (self.x - 1, self.y + 1):
+					output.append(square)
 
 		return output
 
