@@ -44,6 +44,7 @@ class PvEState(State):
                     if move_tuple:
                         self.game_state.make_move(move_tuple, self.player_color, self.board)
                         self.board.turn = 'white' if self.board.turn == 'black' else 'black'
+                        self.board.update_from_bitboards(self.game_state.board)
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_d:
                     # Debug: Visualize bitboard for a piece type
@@ -56,6 +57,7 @@ class PvEState(State):
                         self.board.turn = 'white' if self.board.turn == 'black' else 'black'
                         self.game_state.undo_move(self.board)
                         self.board.turn = 'white' if self.board.turn == 'black' else 'black'
+                        self.board.update_from_bitboards(self.game_state.board)
 
     def update(self):
         if self.game_over:
@@ -76,17 +78,23 @@ class PvEState(State):
         if self.board.turn != self.player_color and not self.game_over:
             self.run_bot_move()
 
-    def run_bot_move(self):
-        # TODO: Add Model prediction here. 
-        # Integrate the AI model to calculate and return the best move on self.board. 
-        
+    def run_bot_move(self): 
         self.bot.color = 'white' if self.player_color == 'black' else 'black'
         # get the current board state in bitboard format and update the game state
         self.game_state.board = self.board.get_bitboards()
-        
+        # Integrate the AI model to calculate and return the best move on self.board.
         AI_move = self.bot.get_best_move(self.board, self.game_state)
+        # when the bot fails to find a move (bot prepares to lose), just pick a random move to avoid crashing.
+        if AI_move is None:
+            moves = self.game_state.get_strictly_legal_moves(self.bot.color)
+            AI_move = random.choice(moves) if moves else None
+            # bot is checkmated, just skip its turn and let the player win
+            if AI_move is None:
+                self.board.turn = 'white' if self.board.turn == 'black' else 'black'
+                return
         self.game_state.make_move(AI_move, self.bot.color, self.board)
         self.board.turn = 'white' if self.board.turn == 'black' else 'black'
+        self.board.update_from_bitboards(self.game_state.board)
 
     def draw(self, surface):
         surface.fill('white')

@@ -13,10 +13,7 @@ class Piece:
 		for i in board.squares:
 			i.highlight = False
 
-		print(f"Attempting move from {self.get_index_from_pos()} to {square.get_index_from_square()}")
 		valid_moves = [move[:2] for move in game_state.get_strictly_legal_moves(board.turn)]
-		for move in valid_moves:
-			print(f"Valid move: {move}")
 		if (self.get_index_from_pos(), square.get_index_from_square()) in valid_moves or force:
 			board.selected_piece = None
 

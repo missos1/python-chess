@@ -1,7 +1,7 @@
 def negamax_alphabeta(state, depth, alpha, beta, turn_multiplier, color):
     if depth == 0:
         # TODO: Implement a proper evaluation function here that considers material, piece activity, king safety,...
-        return 100, None # fake evaluate
+        return 100 * turn_multiplier, None # fake evaluate
     
     max_score = -float('inf')
     best_move = None

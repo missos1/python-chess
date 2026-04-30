@@ -1,4 +1,5 @@
 from data.classes.chess_bot.constants import *
+from data.classes.chess_bot.move_filter import is_square_attacked
 from data.classes.chess_bot.move_gens import *
 
 def bitboard_visualize(bitboards):
@@ -46,7 +47,8 @@ def bitboard_visualize(bitboards):
                 print(f"Move from {squares_string[move[0]]} to {squares_string[move[1]]} with flag {flag_strings[move[2]]}")
                 test_moves |= (1 << move[1])
         else:
-            for move in piece_map[piece_type][1](bitboards, piece_map[piece_type][2], 15):
+            moves = get_legal_moves(piece_map[piece_type][1](bitboards, piece_map[piece_type][2], 15), bitboards, piece_map[piece_type][2])
+            for move in moves:
                 print(f"Move from {squares_string[move[0]]} to {squares_string[move[1]]} with flag {flag_strings[move[2]]}")
                 test_moves |= (1 << move[1])
         print_bitboards(test_moves)
@@ -72,3 +74,15 @@ def print_bitboards(bitboard):
         print(row_string)
             
     print("  ---------------\n")
+
+def get_legal_moves(moves, bitboards, color):
+    legal_moves = []
+    enemy_color = BLACK if color == WHITE else WHITE
+    
+    for move in moves:
+        from_sq, to_sq, flag = move
+        
+        if not is_square_attacked(to_sq, enemy_color, bitboards):
+            legal_moves.append(move)
+            
+    return legal_moves

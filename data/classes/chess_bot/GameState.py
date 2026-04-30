@@ -34,14 +34,7 @@ class GameState:
         from_sq, to_sq, flag = move
         moving_piece = self.piece_values[from_sq]
         captured_piece = self.piece_values[to_sq]
-        
-        self.state_history.append({
-            'move': move,
-            'color': color,
-            'captured': captured_piece,
-            'castling': self.castling_rights,
-            'en_passant': self.en_passant_sq
-        })
+        promoted_symbol = None
 
         # Moving pieces on the Bitboard
         move_mask = (1 << from_sq) | (1 << to_sq)
@@ -54,6 +47,24 @@ class GameState:
         # update Piece Array
         self.piece_values[to_sq] = moving_piece
         self.piece_values[from_sq] = None
+
+        # Pawn promotion: convert pawn to queen on the promotion rank
+        if moving_piece in (W_PAWN, B_PAWN):
+            if (color == WHITE and to_sq >= 56) or (color == BLACK and to_sq < 8):
+                promoted_symbol = W_QUEEN if color == WHITE else B_QUEEN
+                self.piece_values[to_sq] = promoted_symbol
+                self.board[moving_piece] &= ~(1 << to_sq)
+                self.board[promoted_symbol] |= (1 << to_sq)
+
+        self.state_history.append({
+            'move': move,
+            'color': color,
+            'captured': captured_piece,
+            'castling': self.castling_rights,
+            'en_passant': self.en_passant_sq,
+            'moved_piece': moving_piece,
+            'promoted_symbol': promoted_symbol
+        })
 
         # Handling Castling (Move the rook as well)
         if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
@@ -80,12 +91,17 @@ class GameState:
         state = self.state_history.pop()
         from_sq, to_sq, flag = state['move']
         captured_piece = state['captured']
-        moving_piece = self.piece_values[to_sq]
-        color = WHITE if moving_piece.isupper() else BLACK
+        moved_piece = state['moved_piece']
+        promoted_symbol = state.get('promoted_symbol')
+        color = WHITE if moved_piece.isupper() else BLACK
 
         # Reverse the move on the Bitboard
-        self.board[moving_piece] ^= (1 << from_sq) | (1 << to_sq)
-        
+        if promoted_symbol is None:
+            self.board[moved_piece] ^= (1 << from_sq) | (1 << to_sq)
+        else:
+            self.board[promoted_symbol] &= ~(1 << to_sq)
+            self.board[moved_piece] |= (1 << from_sq)
+
         # Restore captured piece if there was one
         if captured_piece is not None:
             self.board[captured_piece] |= (1 << to_sq)
@@ -93,7 +109,7 @@ class GameState:
         else:
             self.piece_values[to_sq] = None
         
-        self.piece_values[from_sq] = moving_piece
+        self.piece_values[from_sq] = moved_piece
 
         # Reverse the castling move
         if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
