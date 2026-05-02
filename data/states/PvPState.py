@@ -1,5 +1,5 @@
 import pygame
-from data.classes.chess_bot.GameState import GameState
+from data.classes.chess_bot.EngineState import EngineState
 from data.states.State import State
 from data.classes.Board import Board
 from .debug import bitboard_visualize
@@ -13,7 +13,7 @@ class PvPState(State):
     def on_enter(self):
         # We start a fresh board whenever we enter PvP mode
         self.board = Board(600, 600)
-        self.game_state = GameState(self.board.get_bitboards(), self.board.get_pieces_array())
+        self.game_state = EngineState(self.board.get_bitboards(), self.board.get_pieces_array())
 
     def handle_events(self, events):
         for event in events:
