@@ -1,16 +1,34 @@
+from data.classes.chess_bot.evaluation import evaluate
+
 def negamax_alphabeta(state, depth, alpha, beta, turn_multiplier, color):
+
+    # ===== STOP CONDITION =====
     if depth == 0:
-        # TODO: Implement a proper evaluation function here that considers material, piece activity, king safety,...
-        return 100 * turn_multiplier, None # fake evaluate
-    
+        return evaluate(state) * turn_multiplier, None
+
+    moves = state.get_strictly_legal_moves(color)
+
+    # ===== CHECKMATE / STALEMATE =====
+    if len(moves) == 0:
+        return -999999 * turn_multiplier, None
+
     max_score = -float('inf')
     best_move = None
-    moves = state.get_strictly_legal_moves(color)
+
     next_color = 'white' if color == 'black' else 'black'
 
     for move in moves:
         state.make_move(move, color)
-        score, _ = negamax_alphabeta(state, depth - 1, -beta, -alpha, -turn_multiplier, next_color)
+
+        score, _ = negamax_alphabeta(
+            state,
+            depth - 1,
+            -beta,
+            -alpha,
+            -turn_multiplier,
+            next_color
+        )
+
         score = -score
         state.undo_move()
 
@@ -21,6 +39,6 @@ def negamax_alphabeta(state, depth, alpha, beta, turn_multiplier, color):
         alpha = max(alpha, score)
 
         if alpha >= beta:
-            break  # pruning
+            break  # cắt tỉa
 
     return max_score, best_move

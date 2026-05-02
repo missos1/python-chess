@@ -24,18 +24,18 @@ clock = pygame.time.Clock()
 running = True
 
 while running:
-	events = pygame.event.get()
-	for event in events:
-		if event.type == pygame.QUIT:
-			running = False
-			
-	manager.handle_events(events)
-	manager.update()
-	
-	manager.draw(screen)
-	pygame.display.update()
-	
-	clock.tick(60)
+    events = pygame.event.get()
+    for event in events:
+        if event.type == pygame.QUIT:
+            running = False
+
+    manager.handle_events(events)
+    manager.update()
+
+    manager.draw(screen)
+    pygame.display.update()
+
+    clock.tick(60)
 
 pygame.quit()
 sys.exit()
