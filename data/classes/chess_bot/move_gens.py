@@ -5,12 +5,12 @@ from .ray_cast_moves import *
 # Returns the indices of the set bits in a bitboard
 # Example: 0b1010 -> yields 1 and 3 (0-indexed from the right)
 def get_set_bits(bitboard):
-	while bitboard: 
-		lsb = bitboard & -bitboard
-		yield lsb.bit_length() - 1
-		bitboard &= bitboard - 1
+    while bitboard:
+        lsb = bitboard & -bitboard
+        yield lsb.bit_length() - 1
+        bitboard &= bitboard - 1
   
-def get_pawns_moves(bitboards, color):
+def get_pawns_moves(bitboards, color, en_passant_sq=None):
     moves = []
     
     occupied = bitboards[OCCUPIED]
@@ -37,6 +37,17 @@ def get_pawns_moves(bitboards, color):
             for target in get_set_bits(captures_board):
                 moves.append((pawn, target, FLAG_CAPTURE))
 
+        if en_passant_sq is not None:
+            ep_x = en_passant_sq % 8
+            ep_y = en_passant_sq // 8
+            for dx in (-1, 1):
+                pawn_x = ep_x + dx
+                pawn_y = ep_y - 1
+                if 0 <= pawn_x <= 7 and 0 <= pawn_y <= 7:
+                    pawn = pawn_y * 8 + pawn_x
+                    if pawns & (1 << pawn):
+                        moves.append((pawn, en_passant_sq, FLAG_EN_PASSANT))
+
     else:
         pawns = bitboards[B_PAWN]
         enemies = bitboards[W_PIECES]
@@ -56,6 +67,17 @@ def get_pawns_moves(bitboards, color):
             
             for target in get_set_bits(captures_board):
                 moves.append((pawn, target, FLAG_CAPTURE))
+
+        if en_passant_sq is not None:
+            ep_x = en_passant_sq % 8
+            ep_y = en_passant_sq // 8
+            for dx in (-1, 1):
+                pawn_x = ep_x + dx
+                pawn_y = ep_y + 1
+                if 0 <= pawn_x <= 7 and 0 <= pawn_y <= 7:
+                    pawn = pawn_y * 8 + pawn_x
+                    if pawns & (1 << pawn):
+                        moves.append((pawn, en_passant_sq, FLAG_EN_PASSANT))
 
     return moves
 
@@ -170,12 +192,12 @@ def get_bishops_moves(bitboards, color):
 def get_queens_moves(bitboards, color):
 	return _get_sliding_pieces_moves(bitboards, color, W_QUEEN, B_QUEEN, queen_moves)
 
-def generate_all_moves(bitboards, color, castling_rights):
-	moves = []
-	moves.extend(get_pawns_moves(bitboards, color))
-	moves.extend(get_knights_moves(bitboards, color))
-	moves.extend(get_king_moves(bitboards, color, castling_rights))
-	moves.extend(get_rooks_moves(bitboards, color))
-	moves.extend(get_bishops_moves(bitboards, color))
-	moves.extend(get_queens_moves(bitboards, color))
-	return moves
+def generate_all_moves(bitboards, color, castling_rights, en_passant_sq=None):
+    moves = []
+    moves.extend(get_pawns_moves(bitboards, color, en_passant_sq))
+    moves.extend(get_knights_moves(bitboards, color))
+    moves.extend(get_king_moves(bitboards, color, castling_rights))
+    moves.extend(get_rooks_moves(bitboards, color))
+    moves.extend(get_bishops_moves(bitboards, color))
+    moves.extend(get_queens_moves(bitboards, color))
+    return moves

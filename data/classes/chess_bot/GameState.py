@@ -12,6 +12,7 @@ class GameState:
         
         # Reference table for quickly checking castling rights
         self.castling_update_table = [15] * 64  # 1111
+        self.ep_capture_sq = None
 
         # White
         self.castling_update_table[7] &= ~WK_RIGHT
@@ -26,6 +27,9 @@ class GameState:
     def sync_from_board(self, board):
         self.board = board.get_bitboards()
         self.piece_values = board.get_pieces_array()
+        self.en_passant_sq = None
+        if board.en_passant_target is not None:
+            self.en_passant_sq = (7 - board.en_passant_target[1]) * 8 + board.en_passant_target[0]
 
     def make_move(self, move, color, board=None):
         if board is not None:
@@ -33,15 +37,37 @@ class GameState:
 
         from_sq, to_sq, flag = move
         moving_piece = self.piece_values[from_sq]
+        
+        # Defensive: if moving_piece is None, try to find it from bitboards
+        if moving_piece is None:
+            # Resync and try again
+            if board is not None:
+                self.sync_from_board(board)
+                moving_piece = self.piece_values[from_sq]
+            # If still None, this is an invalid move - error out
+            if moving_piece is None:
+                raise ValueError(f"Move {move} has no piece at from_sq {from_sq}")
+        
         captured_piece = self.piece_values[to_sq]
         promoted_symbol = None
+        ep_capture_sq = None
+        old_en_passant = self.en_passant_sq
+        self.en_passant_sq = None
 
         # Moving pieces on the Bitboard
         move_mask = (1 << from_sq) | (1 << to_sq)
         self.board[moving_piece] ^= move_mask
         
-        # Handling a capture
-        if flag == FLAG_CAPTURE:
+        # Handling captures and en passant state
+        ep_capture_sq = None
+        if flag == FLAG_EN_PASSANT:
+            ep_capture_sq = to_sq - 8 if color == WHITE else to_sq + 8
+            captured_piece = B_PAWN if color == WHITE else W_PAWN
+            self.board[captured_piece] &= ~(1 << ep_capture_sq)
+            self.piece_values[ep_capture_sq] = None
+        elif flag == FLAG_DOUBLE_PAWN:
+            self.en_passant_sq = to_sq - 8 if color == WHITE else to_sq + 8
+        elif flag == FLAG_CAPTURE:
             self.board[captured_piece] &= ~(1 << to_sq)
         
         # update Piece Array
@@ -61,9 +87,10 @@ class GameState:
             'color': color,
             'captured': captured_piece,
             'castling': self.castling_rights,
-            'en_passant': self.en_passant_sq,
+            'en_passant': old_en_passant,
             'moved_piece': moving_piece,
-            'promoted_symbol': promoted_symbol
+            'promoted_symbol': promoted_symbol, 
+            'ep_capture_sq': ep_capture_sq
         })
 
         # Handling Castling (Move the rook as well)
@@ -80,8 +107,9 @@ class GameState:
         self.castling_rights &= self.castling_update_table[to_sq]
 
         # Update Bitboard (Incremental)
-        self.update_summary_boards_incrementally(from_sq, to_sq, moving_piece, captured_piece, color, flag)
+        self.update_summary_boards_incrementally(from_sq, to_sq, moving_piece, captured_piece, color, flag, ep_capture_sq)
         if board is not None:
+            board.en_passant_target = None if self.en_passant_sq is None else (self.en_passant_sq % 8, 7 - (self.en_passant_sq // 8))
             board.update_piece_positions(self.piece_values) # update board to draw correctly after move
 
     def undo_move(self, board=None):
@@ -93,6 +121,7 @@ class GameState:
         captured_piece = state['captured']
         moved_piece = state['moved_piece']
         promoted_symbol = state.get('promoted_symbol')
+        ep_capture_sq = state.get('ep_capture_sq')
         color = WHITE if moved_piece.isupper() else BLACK
 
         # Reverse the move on the Bitboard
@@ -104,8 +133,13 @@ class GameState:
 
         # Restore captured piece if there was one
         if captured_piece is not None:
-            self.board[captured_piece] |= (1 << to_sq)
-            self.piece_values[to_sq] = captured_piece
+            if ep_capture_sq is not None:
+                self.board[captured_piece] |= (1 << ep_capture_sq)
+                self.piece_values[ep_capture_sq] = captured_piece
+                self.piece_values[to_sq] = None
+            else:
+                self.board[captured_piece] |= (1 << to_sq)
+                self.piece_values[to_sq] = captured_piece
         else:
             self.piece_values[to_sq] = None
         
@@ -124,9 +158,10 @@ class GameState:
         self.en_passant_sq = state['en_passant']
         self.full_update_summary_boards()
         if board is not None:
+            board.en_passant_target = None if self.en_passant_sq is None else (self.en_passant_sq % 8, 7 - (self.en_passant_sq // 8))
             board.update_piece_positions(self.piece_values) # update board to draw correctly after undo
 
-    def update_summary_boards_incrementally(self, f, t, p, cap, color, flag):
+    def update_summary_boards_incrementally(self, f, t, p, cap, color, flag, ep_capture_sq=None):
         """Update the summary bitboards (W_PIECES, B_PIECES, OCCUPIED) based on a single move without needing to recalculate everything."""
         side_board = W_PIECES if color == WHITE else B_PIECES
         enemy_board = B_PIECES if color == WHITE else W_PIECES
@@ -139,7 +174,10 @@ class GameState:
         self.board[side_board] ^= mask
         
         if cap is not None:
-            self.board[enemy_board] &= ~(1 << t)
+            if ep_capture_sq is not None:
+                self.board[enemy_board] &= ~(1 << ep_capture_sq)
+            else:
+                self.board[enemy_board] &= ~(1 << t)
             
         self.board[OCCUPIED] = self.board[W_PIECES] | self.board[B_PIECES]
 
@@ -167,7 +205,7 @@ class GameState:
         return True
 
     def get_strictly_legal_moves(self, color):
-        pseudo_moves = generate_all_moves(self.board, color, self.castling_rights)
+        pseudo_moves = generate_all_moves(self.board, color, self.castling_rights, self.en_passant_sq)
         legal_moves = []
         enemy_color = BLACK if color == WHITE else WHITE
         

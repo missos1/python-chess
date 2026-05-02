@@ -1,5 +1,3 @@
-import pygame
-
 from data.classes.chess_bot.constants import *
 
 from data.classes.Square import Square
@@ -102,9 +100,9 @@ class Board:
                             self
                         )
 
-    def handle_click(self, mx, my, game_state):
-        x = mx // self.square_width
-        y = my // self.square_height
+    def handle_click(self, mx, my, game_state, is_flipped=False):
+        x = mx // self.square_width if not is_flipped else 7 - (mx // self.square_width)
+        y = my // self.square_height if not is_flipped else 7 - (my // self.square_height)
         if x < 0 or x > 7 or y < 0 or y > 7:
             return
         clicked_square = self.get_square_from_pos((x, y))
@@ -119,7 +117,14 @@ class Board:
             dest_piece = clicked_square.occupying_piece
             moving_piece = self.selected_piece
             if moving_piece.move(self, clicked_square, game_state):
-                flag = FLAG_CAPTURE if dest_piece is not None and dest_piece.color != moving_piece.color else FLAG_QUIET
+                flag = FLAG_QUIET
+                if dest_piece is not None and dest_piece.color != moving_piece.color:
+                    flag = FLAG_CAPTURE
+                elif moving_piece.notation == ' ' and abs(clicked_square.y - from_pos[1]) == 2:
+                    flag = FLAG_DOUBLE_PAWN
+                elif moving_piece.notation == ' ' and dest_piece is None and clicked_square.x != from_pos[0]:
+                    flag = FLAG_EN_PASSANT
+
                 if moving_piece.notation == 'K':
                     dx = clicked_square.x - from_pos[0]
                     if dx == 2:
@@ -129,40 +134,7 @@ class Board:
 
                 from_sq = (7 - from_pos[1]) * 8 + from_pos[0]
                 to_sq = (7 - clicked_square.y) * 8 + clicked_square.x
-                return (from_sq, to_sq, flag)
-
-            elif clicked_square.occupying_piece is not None:
-                if clicked_square.occupying_piece.color == self.turn:
-                    self.selected_piece = clicked_square.occupying_piece
-
-    def handle_click_flipped(self, mx, my, game_state):
-        x = 7 - (mx // self.square_width)
-        y = 7 - (my // self.square_height)
-        if x < 0 or x > 7 or y < 0 or y > 7:
-            return
-        clicked_square = self.get_square_from_pos((x, y))
-
-        if self.selected_piece is None:
-            if clicked_square.occupying_piece is not None:
-                if clicked_square.occupying_piece.color == self.turn:
-                    self.selected_piece = clicked_square.occupying_piece
-
-        else:
-            from_pos = self.selected_piece.pos
-            dest_piece = clicked_square.occupying_piece
-            moving_piece = self.selected_piece
-            if moving_piece.move(self, clicked_square, game_state):
-                flag = FLAG_CAPTURE if dest_piece is not None and dest_piece.color != moving_piece.color else FLAG_QUIET
-                if moving_piece.notation == 'K':
-                    dx = clicked_square.x - from_pos[0]
-                    if dx == 2:
-                        flag = FLAG_CASTLE_KS
-                    elif dx == -2:
-                        flag = FLAG_CASTLE_QS
-
-                from_sq = (7 - from_pos[1]) * 8 + from_pos[0]
-                to_sq = (7 - clicked_square.y) * 8 + clicked_square.x
-                return (from_sq, to_sq, flag)
+                return from_sq, to_sq, flag
 
             elif clicked_square.occupying_piece is not None:
                 if clicked_square.occupying_piece.color == self.turn:
@@ -175,7 +147,7 @@ class Board:
 
     def is_in_check(self, color, board_change=None):  # board_change = [(x1, y1), (x2, y2)]
 
-        if color == None:
+        if color is None:
             color = self.turn
 
         output = False
@@ -202,8 +174,8 @@ class Board:
 
             # Simulate en passant capture by temporarily removing the captured pawn.
             if changing_piece is not None and changing_piece.notation == ' ' and self.en_passant_target is not None:
-                if board_change[
-                    1] == self.en_passant_target and new_square_old_piece is None and old_square.x != new_square.x:
+                if (board_change[1] == self.en_passant_target and new_square_old_piece is None
+                        and old_square.x != new_square.x):
                     capture_y = new_square.y + (1 if changing_piece.color == 'white' else -1)
                     if 0 <= capture_y < 8:
                         en_passant_captured_square = self.get_square_from_pos((new_square.x, capture_y))
@@ -217,7 +189,7 @@ class Board:
         if changing_piece is not None:
             if changing_piece.notation == 'K':
                 king_pos = new_square.pos
-        if king_pos == None:
+        if king_pos is None:
             for piece in pieces:
                 if piece.notation == 'K':
                     if piece.color == color:
@@ -238,7 +210,7 @@ class Board:
 
     def is_in_checkmate(self, color):
         for piece in [i.occupying_piece for i in self.squares]:
-            if piece != None and piece.color == color:
+            if piece is not None and piece.color == color:
                 if piece.get_valid_moves(self) != []:
                     return False
 
@@ -334,9 +306,10 @@ class Board:
         if self.is_flipped:
             self.apply_view(True)
 
-    # This function will be for the evaluation function to quickly access piece values without bitboard manipulation during capturing or evaluation
-    # It will be a 64-length array with the value of the piece on each square, or 0 if it's empty
     def get_pieces_array(self):
+        """This function will be for the evaluation function to quickly access
+        piece values without bitboard manipulation during capturing or evaluation.
+        It will be a 64-length array with the value of the piece on each square, or 0 if it's empty"""
         pieces_arr = [None] * 64
         piece_to_symbol = {
             'Pawn': W_PAWN, 'Knight': W_KNIGHT, 'Bishop': W_BISHOP,
