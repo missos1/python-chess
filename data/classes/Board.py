@@ -103,9 +103,9 @@ class Board:
 						)
 
 
-	def handle_click(self, mx, my):
-		x = mx // self.square_width
-		y = my // self.square_height
+	def handle_click(self, mx, my, is_flipped=False):
+		x = mx // self.square_width if not is_flipped else 7 - (mx // self.square_width)
+		y = my // self.square_height if not is_flipped else 7 - (my // self.square_height)
 		if x < 0 or x > 7 or y < 0 or y > 7:
 			return
 		clicked_square = self.get_square_from_pos((x, y))
@@ -116,10 +116,11 @@ class Board:
 					self.selected_piece = clicked_square.occupying_piece
 
 		else:
+			moving_piece = self.selected_piece
 			old_y = self.selected_piece.y
-			if self.selected_piece.move(self, clicked_square):
-				if self.selected_piece.notation == ' ' and abs(self.selected_piece.y - old_y) == 2:
-					self.en_passant_target = (self.selected_piece.x, (self.selected_piece.y + old_y) // 2)
+			if moving_piece.move(self, clicked_square):
+				if moving_piece.notation == ' ' and abs(moving_piece.y - old_y) == 2:
+					self.en_passant_target = (moving_piece.x, (moving_piece.y + old_y) // 2)
 				else:
 					self.en_passant_target = None
 				self.turn = 'white' if self.turn == 'black' else 'black'
@@ -127,29 +128,7 @@ class Board:
 				if clicked_square.occupying_piece.color == self.turn:
 					self.selected_piece = clicked_square.occupying_piece
 
-	def handle_click_flipped(self, mx, my):
-		x = 7 - (mx // self.square_width)
-		y = 7 - (my // self.square_height)
-		if x < 0 or x > 7 or y < 0 or y > 7:
-			return
-		clicked_square = self.get_square_from_pos((x, y))
 
-		if self.selected_piece is None:
-			if clicked_square.occupying_piece is not None:
-				if clicked_square.occupying_piece.color == self.turn:
-					self.selected_piece = clicked_square.occupying_piece
-
-		else:
-			old_y = self.selected_piece.y
-			if self.selected_piece.move(self, clicked_square):
-				if self.selected_piece.notation == ' ' and abs(self.selected_piece.y - old_y) == 2:
-					self.en_passant_target = (self.selected_piece.x, (self.selected_piece.y + old_y) // 2)
-				else:
-					self.en_passant_target = None
-				self.turn = 'white' if self.turn == 'black' else 'black'
-			elif clicked_square.occupying_piece is not None:
-				if clicked_square.occupying_piece.color == self.turn:
-					self.selected_piece = clicked_square.occupying_piece
 
 	def apply_view(self, is_flipped):
 		self.is_flipped = is_flipped
@@ -223,11 +202,7 @@ class Board:
 
 
 	def get_bitboards(self):
-		bitboards = {
-			W_PAWN: 0, W_KNIGHT: 0, W_BISHOP: 0, W_ROOK: 0, W_QUEEN: 0, W_KING: 0,
-			B_PAWN: 0, B_KNIGHT: 0, B_BISHOP: 0, B_ROOK: 0, B_QUEEN: 0, B_KING: 0,
-			W_PIECES: 0, B_PIECES: 0, OCCUPIED: 0
-		}
+		bitboards = [0] * 16
 
 		for square in self.squares:
 			piece = square.occupying_piece
@@ -241,18 +216,19 @@ class Board:
 				
 				# Map the class name
 				symbol_map = {
-					'Pawn': 'P', 'Knight': 'N', 'Bishop': 'B', 
-					'Rook': 'R', 'Queen': 'Q', 'King': 'K'
+					'Pawn': W_PAWN, 'Knight': W_KNIGHT, 'Bishop': W_BISHOP, 
+					'Rook': W_ROOK, 'Queen': W_QUEEN, 'King': W_KING
 				}
-				symbol = symbol_map.get(piece_type)
-				
-				# Convert to lowercase if the piece is black
-				if piece.color == BLACK:
-					symbol = symbol.lower()
+
+				piece_index = symbol_map.get(piece_type)
+ 
+				# If the piece is black, just add 6 to the index!
+				if piece.color == BLACK: # Make sure BLACK is defined, usually 'black' in Pygame
+					piece_index = piece_index + 6
 
 				# Stamp this piece onto its specific bitboard using Bitwise OR
-				# Example: 0001, shift by the lerf index 3 to 1000 and OR 0100 to get 1100
-				bitboards[symbol] |= (1 << lerf_index)
+				# bitboards is now a List, so this is an instant O(1) memory pointer update
+				bitboards[piece_index] |= (1 << lerf_index)
 
 		# Generate the summary bitboards for quick AI lookups
 		bitboards[W_PIECES] = (bitboards[W_PAWN] | bitboards[W_KNIGHT] | bitboards[W_BISHOP] | 

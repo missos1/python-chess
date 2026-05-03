@@ -19,6 +19,7 @@ class PvEState(State):
         self.bot_thinking = False
         self.bot_move = None
         self.bot_thread = None
+        self.bot = None
         self.thinking_start_time = 0
 
     def on_enter(self) -> None:
@@ -26,6 +27,7 @@ class PvEState(State):
         self.player_color = random.choice(['white', 'black'])
         self.board = Board(600, 600, is_flipped=(self.player_color == 'black'))
         self.game_over = False
+        self.bot = Bot(depth=6, color=BLACK if self.player_color == 'white' else WHITE)
         print(f"PvE Started! You are playing as {self.player_color}.")
         
 
@@ -38,10 +40,8 @@ class PvEState(State):
                 # Only let player click if it is currently their turn
                 if self.board.turn == self.player_color:
                     mx, my = event.pos
-                    if self.board.is_flipped:
-                        self.board.handle_click_flipped(mx, my)
-                    else:
-                        self.board.handle_click(mx, my)
+
+                    self.board.handle_click(mx, my, self.board.is_flipped)
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_d:
                     # Debug: Visualize bitboard for a piece type
@@ -79,20 +79,21 @@ class PvEState(State):
         self.thinking_start_time = time.time()
         print("Bot is thinking...")
         
-        # Translate Pygame color strings to your mathematical integer constants
-        bot_color = WHITE if self.player_color == 'black' else BLACK
-        
-        # --- 1. SETUP THE MATH SANDBOX ---
         current_bitboards = self.board.get_bitboards()
         pieces_array = create_piece_array_from_bitboards(current_bitboards)
         
-        engine_state = GameState(current_bitboards, pieces_array)
+        if self.board.en_passant_target is None:
+            ep_index = None
+        else:
+            x, y = self.board.en_passant_target
+            ep_index = (7 - y) * 8 + x
+
+        engine_state = GameState(current_bitboards, pieces_array, en_passant_target=ep_index)
         # Using the property we defined in the Board class
         engine_state.castling_rights = self.board.castling_rights 
         
-        # --- 2. START THE BACKGROUND THREAD ---
-        def worker(state, color):
-            ai = Bot(depth=5, color=color)
+        def worker(state):
+            ai = self.bot
             # Store the computed move so the main loop can pick it up
             self.bot_move = ai.get_best_move(state) 
             
@@ -100,11 +101,10 @@ class PvEState(State):
             if self.bot_move is None:
                 self.bot_move = "NO_MOVE"
 
-        self.bot_thread = threading.Thread(target=worker, args=(engine_state, bot_color))
+        self.bot_thread = threading.Thread(target=worker, args=(engine_state,))
         self.bot_thread.start()
         
     def execute_bot_move(self, best_move_tuple):
-        # --- 3. TRANSLATE AND EXECUTE ---
         if best_move_tuple and best_move_tuple != "NO_MOVE":
             source_idx, target_idx, flag = best_move_tuple
             

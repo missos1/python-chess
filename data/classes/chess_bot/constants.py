@@ -2,23 +2,23 @@
 WHITE = 'white'
 BLACK = 'black'
 
-W_PAWN   = 'P'
-W_KNIGHT = 'N'
-W_BISHOP = 'B'
-W_ROOK   = 'R'
-W_QUEEN  = 'Q'
-W_KING   = 'K'
+W_PAWN   = 1
+W_KNIGHT = 2
+W_BISHOP = 3
+W_ROOK   = 4
+W_QUEEN  = 5
+W_KING   = 6
 
-B_PAWN   = 'p'
-B_KNIGHT = 'n'
-B_BISHOP = 'b'
-B_ROOK   = 'r'
-B_QUEEN  = 'q'
-B_KING   = 'k'
+B_PAWN   = 7
+B_KNIGHT = 8
+B_BISHOP = 9
+B_ROOK   = 10
+B_QUEEN  = 11
+B_KING   = 12
 
-W_PIECES = 'white_pieces'
-B_PIECES = 'black_pieces'
-OCCUPIED = 'occupied_squares'
+W_PIECES = 13
+B_PIECES = 14
+OCCUPIED = 15
 
 # Constants for the exact squares that must be empty
 W_KS_EMPTY = (1 << 5) | (1 << 6)                # F1, G1
@@ -52,7 +52,7 @@ BOARD_MASK = 0xFFFFFFFFFFFFFFFF
 
 # PAWNS: Encourage controlling the center and pushing toward promotion.
 PAWN_PST = [
-    # Rank 1 (Indices 0-7)
+    # Rank 1 
      0,  0,  0,  0,  0,  0,  0,  0, 
     # Rank 2
      5, 10, 10,-20,-20, 10, 10,  5, 
@@ -135,56 +135,41 @@ KING_PST = [
 # These are just simple integer IDs so the engine can instantly identify pieces.
 EMPTY = 0
 
-W_PAWN_VALUE = 1
-W_KNIGHT_VALUE = 2
-W_BISHOP_VALUE = 3
-W_ROOK_VALUE = 4
-W_QUEEN_VALUE = 5
-W_KING_VALUE = 6
-
-B_PAWN_VALUE = 7
-B_KNIGHT_VALUE = 8
-B_BISHOP_VALUE = 9
-B_ROOK_VALUE = 10
-B_QUEEN_VALUE = 11
-B_KING_VALUE = 12
-
 
 # --- PIECE POINT VALUES (For Evaluation & MVV-LVA Sorter) ---
-# Scores are in "Centipawns" (100 points = 1 Pawn).
-# Notice how Bishops (330) are valued slightly higher than Knights (320). 
-# This teaches your Bot the "Bishop Pair" advantage!
-PIECE_POINT_VALUES = {
-    EMPTY: 0,
-    
-    W_PAWN_VALUE: 100,   
-    B_PAWN_VALUE: 100,
-    
-    W_KNIGHT_VALUE: 320, 
-    B_KNIGHT_VALUE: 320,
-    
-    W_BISHOP_VALUE: 330, 
-    B_BISHOP_VALUE: 330,
-    
-    W_ROOK_VALUE: 500,   
-    B_ROOK_VALUE: 500,
-    
-    W_QUEEN_VALUE: 900,  
-    B_QUEEN_VALUE: 900,
-    
-    # The King is given an absurdly high value so the MVV-LVA sorter 
-    # knows that capturing it (or checking it) is the ultimate priority.
-    W_KING_VALUE: 20000, 
-    B_KING_VALUE: 20000 
-}
+PIECE_POINT_VALUES = (
+    0,      # 0: EMPTY
+    100,    # 1: W_PAWN
+    280,    # 2: W_KNIGHT
+    320,    # 3: W_BISHOP
+    479,    # 4: W_ROOK
+    929,    # 5: W_QUEEN
+    60000,  # 6: W_KING
+    100,    # 7: B_PAWN
+    280,    # 8: B_KNIGHT
+    320,    # 9: B_BISHOP
+    479,    # 10: B_ROOK
+    929,    # 11: B_QUEEN
+    60000   # 12: B_KING
+)
 
-# The Master Lookup Dictionary (Allows instant O(1) access by piece ID)
-PST_LOOKUP = {
-    W_PAWN_VALUE: PAWN_PST,     B_PAWN_VALUE: PAWN_PST,
-    W_KNIGHT_VALUE: KNIGHT_PST, B_KNIGHT_VALUE: KNIGHT_PST,
-    W_BISHOP_VALUE: BISHOP_PST, B_BISHOP_VALUE: BISHOP_PST,
-    W_ROOK_VALUE: ROOK_PST,     B_ROOK_VALUE: ROOK_PST,
-    W_QUEEN_VALUE: QUEEN_PST,   B_QUEEN_VALUE: QUEEN_PST,
-    W_KING_VALUE: KING_PST,     B_KING_VALUE: KING_PST
-}
+# Dummy table for EMPTY squares (Index 0)
+EMPTY_PST = [0] * 64
+
+# Replace PST_LOOKUP dictionary with a Tuple
+PST_LOOKUP = (
+    EMPTY_PST,   # 0: EMPTY
+    PAWN_PST,    # 1: W_PAWN
+    KNIGHT_PST,  # 2: W_KNIGHT
+    BISHOP_PST,  # 3: W_BISHOP
+    ROOK_PST,    # 4: W_ROOK
+    QUEEN_PST,   # 5: W_QUEEN
+    KING_PST,    # 6: W_KING
+    PAWN_PST,    # 7: B_PAWN
+    KNIGHT_PST,  # 8: B_KNIGHT
+    BISHOP_PST,  # 9: B_BISHOP
+    ROOK_PST,    # 10: B_ROOK
+    QUEEN_PST,   # 11: B_QUEEN
+    KING_PST     # 12: B_KING
+)
 

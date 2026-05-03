@@ -211,28 +211,10 @@ def create_piece_array_from_bitboards(bitboards):
     # 1. Create an empty board of 64 squares (filled with 0s)
     piece_array = [EMPTY] * 64
     
-    # 2. Map your bitboard dictionary keys to the new Piece IDs
-    # (Adjust the left side if your dictionary keys are strings like 'P', 'N', etc.)
-    piece_mapping = {
-        W_PAWN: W_PAWN_VALUE,
-        W_KNIGHT: W_KNIGHT_VALUE,
-        W_BISHOP: W_BISHOP_VALUE,
-        W_ROOK: W_ROOK_VALUE,
-        W_QUEEN: W_QUEEN_VALUE,
-        W_KING: W_KING_VALUE,
-        
-        B_PAWN: B_PAWN_VALUE,
-        B_KNIGHT: B_KNIGHT_VALUE,
-        B_BISHOP: B_BISHOP_VALUE,
-        B_ROOK: B_ROOK_VALUE,
-        B_QUEEN: B_QUEEN_VALUE,
-        B_KING: B_KING_VALUE
-    }
-    
     # 3. Populate the array
-    for dict_key, piece_id in piece_mapping.items():
+    for piece_id in range(W_PAWN, B_KING + 1):  # Loop through piece types (1-12)
         # Get the 64-bit integer for this piece type
-        board = bitboards[dict_key] 
+        board = bitboards[piece_id] 
         
         # Unpack the bitboard into square indices (0 to 63)
         for square in get_set_bits(board):

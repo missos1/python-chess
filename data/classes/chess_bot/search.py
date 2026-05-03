@@ -2,6 +2,7 @@ import time
 from .constants import *
 from .evaluate import evaluate, score_move
 from .move_filter import is_square_attacked
+from .move_gens import generate_all_moves
 
 class TimeOutException(Exception):
     pass
@@ -12,6 +13,10 @@ def quiescence_search(state, alpha, beta, current_color, search_params):
     if search_params[0] & 2047 == 0:
         if time.time() - search_params[1] > search_params[2]:
             raise TimeOutException()
+        
+    king_board = state.bitboards[W_KING] if current_color == WHITE else state.bitboards[B_KING]
+    if king_board == 0:
+        return -99999
     
     stand_pat = evaluate(state, current_color)
     if stand_pat >= beta:
@@ -19,7 +24,9 @@ def quiescence_search(state, alpha, beta, current_color, search_params):
     if alpha < stand_pat:
         alpha = stand_pat
         
-    capture_moves = state.get_capture_moves_only(current_color)
+    raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
+    capture_moves = [move for move in raw_moves if move[2] in (FLAG_CAPTURE, FLAG_PROMOTION, FLAG_EN_PASSANT)]
+    
     capture_moves.sort(key=lambda m: score_move(m, state), reverse=True)
     
     next_color = BLACK if current_color == WHITE else WHITE
@@ -39,16 +46,29 @@ def quiescence_search(state, alpha, beta, current_color, search_params):
     return alpha
 
 def negamax(depth, state, alpha, beta, current_color, search_params, tt):
-    search_params[0] += 1
-    if search_params[0] & 2047 == 0:
-        if time.time() - search_params[1] > search_params[2]:
-            raise TimeOutException()
+    """ Search the game tree to a certain depth using negamax with alpha-beta pruning, 
+    along with quiescence search at the leaf nodes, and a transposition table to store
+    previously evaluated positions."""
+    search_params[0] += 1                                           # Increment nodes searched
+    if search_params[0] & 2047 == 0:                                # Check time every 2048 nodes
+        if time.time() - search_params[1] > search_params[2]:       # If we've exceeded our time limit, raise an exception to stop the search
+            raise TimeOutException()                                #
+
+    # Check for terminal states (Checkmate or Stalemate)
+    king_board = state.bitboards[W_KING] if current_color == WHITE else state.bitboards[B_KING]
+    if king_board == 0:
+        return -99999 - depth 
             
     alpha_orig = alpha
     zobrist_hash = state.zobrist_hash
     tt_entry = tt.get(zobrist_hash)
     
+    tt_move = None
+    
     if tt_entry is not None and tt_entry[0] >= depth:
+        if len(tt_entry) == 4:
+            tt_move = tt_entry[3]
+            # print(f"tuple with length 4 confirmed")
         tt_flag = tt_entry[2]
         tt_score = tt_entry[1]
         
@@ -64,35 +84,68 @@ def negamax(depth, state, alpha, beta, current_color, search_params, tt):
     if depth <= 0:
         return quiescence_search(state, alpha, beta, current_color, search_params)
         
-    legal_moves = state.get_strictly_legal_moves(current_color)
+    moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
+    moves.sort(key=lambda m: score_move(m, state), reverse=True)
     
-    if not legal_moves:
-        bitboards = state.bitboards
-        king_board = bitboards[W_KING] if current_color == WHITE else bitboards[B_KING]
-        king_sq = (king_board & -king_board).bit_length() - 1
-        enemy_color = BLACK if current_color == WHITE else WHITE
-        
-        if is_square_attacked(king_sq, enemy_color, bitboards):
-            return -99999 - depth
-        return 0
-        
-    legal_moves.sort(key=lambda m: score_move(m, state), reverse=True)
+    if tt_move is not None:
+        try:
+            moves.remove(tt_move)
+            moves.insert(0, tt_move)
+        except ValueError:
+            # This happens rarely due to hash collisions (the TT move isn't valid for this specific board state)
+            pass
     
     next_color = BLACK if current_color == WHITE else WHITE
+    enemy_color = next_color
     make_move = state.make_move
     undo_move = state.undo_move
     
-    for move in legal_moves:
+    best_score = -float('inf')
+    best_move_found = None
+    
+    for move in moves:
+        flag = move[2]
+        
+        # skip illegal castling moves where the king would pass through or end up on an attacked square
+        if flag in (FLAG_CASTLE_KS, FLAG_CASTLE_QS):
+            if current_color == WHITE:
+                if flag == FLAG_CASTLE_KS and (is_square_attacked(4, enemy_color, state.bitboards) or is_square_attacked(5, enemy_color, state.bitboards)):
+                    continue
+                elif flag == FLAG_CASTLE_QS and (is_square_attacked(4, enemy_color, state.bitboards) or is_square_attacked(3, enemy_color, state.bitboards)):
+                    continue
+            else:
+                if flag == FLAG_CASTLE_KS and (is_square_attacked(60, enemy_color, state.bitboards) or is_square_attacked(61, enemy_color, state.bitboards)):
+                    continue
+                elif flag == FLAG_CASTLE_QS and (is_square_attacked(60, enemy_color, state.bitboards) or is_square_attacked(59, enemy_color, state.bitboards)):
+                    continue
+
         make_move(move)
         score = -negamax(depth - 1, state, -beta, -alpha, next_color, search_params, tt)
         undo_move(move)
         
+        if score > best_score:
+            best_score = score
+            best_move_found = move
+            
         if score >= beta:
-            tt[zobrist_hash] = (depth, beta, 2)
+            tt[zobrist_hash] = (depth, beta, 2, move)
             return beta
+            
         if score > alpha:
             alpha = score
             
+    # mate or stalemate detection: 
+    # If we have no legal moves, and our king is attacked, it's checkmate. 
+    # If we have no legal moves and our king is not attacked, it's stalemate.
+    # If all pseudo-legal moves resulted in our King getting captured, 
+    # the best_score will be heavily negative.
+    if best_score <= -90000:
+        king_sq = (king_board & -king_board).bit_length() - 1
+        if not is_square_attacked(king_sq, enemy_color, state.bitboards):
+            return 0 # We are not in check, so it's a Stalemate (Draw)
+        return best_score # We are in check, Checkmate!
+            
     flag = 1 if alpha <= alpha_orig else 0
-    tt[zobrist_hash] = (depth, alpha, flag)
+    tt[zobrist_hash] = (depth, alpha, flag, best_move_found)
+    
     return alpha

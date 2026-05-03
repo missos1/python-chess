@@ -19,6 +19,10 @@ class Bot:
     def get_best_move(self, state):
         self.nodes_searched = 0
         self.start_time = time.time()
+        print(f"Transposition table size at start of search: {len(self.transposition_table)} entries.")
+        if len(self.transposition_table) > 2000000:
+            self.transposition_table.clear()
+            
         best_move = None
         
         legal_moves = state.get_strictly_legal_moves(self.color)

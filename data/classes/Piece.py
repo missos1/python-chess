@@ -7,6 +7,7 @@ class Piece:
 		self.y = pos[1]
 		self.color = color
 		self.has_moved = False
+		self.notation = '?'
 
 	def move(self, board, square, force=False):
 
