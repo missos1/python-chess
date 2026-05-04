@@ -105,6 +105,14 @@ class TestMoveGeneration(unittest.TestCase):
     def test_startpos(self):
         # Build your state from the starting position here
         state = self.build_test_state()
+
+        self.assertEqual(run_perft(state, depth=1, current_color=WHITE), 20)
+        self.assertEqual(run_perft(state, depth=2, current_color=WHITE), 400)
+        self.assertEqual(run_perft(state, depth=3, current_color=WHITE), 8902)
+        self.assertEqual(run_perft(state, depth=4, current_color=WHITE), 197281)
+
+    def test_startpos_divide(self):
+        state = self.build_test_state()
         dict = {}
         
         divide(state, depth=5, current_color=WHITE, dictionary=dict)
@@ -112,7 +120,3 @@ class TestMoveGeneration(unittest.TestCase):
         for move, _ in dict.items():
             self.assertEqual(dict[move], DEPTH_5_STOCKFISH[move], f"Move {move} has incorrect node count. Expected {DEPTH_5_STOCKFISH[move]}, got {dict[move]}.")
         print(f"If you see a mismatch, the bug is likely in move generation or make/undo move logic.")
-        self.assertEqual(run_perft(state, depth=1, current_color=WHITE), 20)
-        self.assertEqual(run_perft(state, depth=2, current_color=WHITE), 400)
-        self.assertEqual(run_perft(state, depth=3, current_color=WHITE), 8902)
-        self.assertEqual(run_perft(state, depth=4, current_color=WHITE), 197281)
