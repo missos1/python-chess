@@ -83,14 +83,19 @@ class King(Piece):
 		for square in self.get_moves(board):
 			if not board.is_in_check(self.color, board_change=[self.pos, square.pos]):
 				output.append(square)
-
-		if self.can_castle(board) == 'queenside':
-			output.append(
-				board.get_square_from_pos((self.x - 2, self.y))
-			)
-		if self.can_castle(board) == 'kingside':
-			output.append(
-				board.get_square_from_pos((self.x + 2, self.y))
-			)
+    
+		if not board.is_in_check(self.color) and self:
+			if not (board.is_in_check(self.color, board_change=[self.pos, board.get_square_from_pos((self.x - 2, self.y)).pos]) or 
+					board.is_in_check(self.color, board_change=[self.pos, board.get_square_from_pos((self.x - 1, self.y)).pos])):
+				if self.can_castle(board) == 'queenside':
+					output.append(
+						board.get_square_from_pos((self.x - 2, self.y))
+					)
+			if not (board.is_in_check(self.color, board_change=[self.pos, board.get_square_from_pos((self.x + 2, self.y)).pos]) or 
+					board.is_in_check(self.color, board_change=[self.pos, board.get_square_from_pos((self.x + 1, self.y)).pos])):
+				if self.can_castle(board) == 'kingside':
+					output.append(
+						board.get_square_from_pos((self.x + 2, self.y))
+					)
 
 		return output

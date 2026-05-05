@@ -3,37 +3,52 @@ from .constants import *
 from .evaluate import evaluate, score_move
 from .move_filter import is_square_attacked
 from .move_gens import generate_all_moves
+from .GameState import GameState
 
 class TimeOutException(Exception):
     pass
 
-def quiescence_search(state, alpha, beta, current_color, search_params):
+def quiescence_search(state: GameState, alpha, beta, current_color, search_params) -> float:
     # search_params = [nodes_searched, start_time, time_limit]
     search_params[0] += 1
     if search_params[0] & 2047 == 0:
         if time.time() - search_params[1] > search_params[2]:
             raise TimeOutException()
-        
+    
+    # if our king has been captured, this is a losing position
     king_board = state.bitboards[W_KING] if current_color == WHITE else state.bitboards[B_KING]
     if king_board == 0:
         return -99999
     
-    stand_pat = evaluate(state, current_color)
-    if stand_pat >= beta:
-        return beta
-    if alpha < stand_pat:
-        alpha = stand_pat
-        
-    raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
-    capture_moves = [move for move in raw_moves if move[2] in (FLAG_CAPTURE, FLAG_PROMOTION, FLAG_EN_PASSANT)]
+    moves_to_search = []
+    king_sq = (king_board & -king_board).bit_length() - 1
     
-    capture_moves.sort(key=lambda m: score_move(m, state), reverse=True)
+    if is_square_attacked(king_sq, BLACK if current_color == WHITE else WHITE, state.bitboards):
+        # If we are in check, we need to consider all moves, not just captures, to try to get out of check
+        stand_pat = -99999
+        
+        raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
+        moves_to_search = raw_moves
+    else:
+        # evaluate current position
+        stand_pat = evaluate(state, current_color)
+        
+        # alpha-beta pruning on the quiet evaluation of the position before we start looking at captures
+        if stand_pat >= beta:
+            return beta
+        if alpha < stand_pat:
+            alpha = stand_pat
+        
+        raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
+        moves_to_search = [move for move in raw_moves if move[2] in (FLAG_CAPTURE, FLAG_PROMOTION, FLAG_EN_PASSANT)]
+    
+    moves_to_search.sort(key=lambda m: score_move(m, state), reverse=True)
     
     next_color = BLACK if current_color == WHITE else WHITE
     make_move = state.make_move
     undo_move = state.undo_move
     
-    for move in capture_moves:
+    for move in moves_to_search:
         make_move(move)
         score = -quiescence_search(state, -beta, -alpha, next_color, search_params)
         undo_move(move)
@@ -45,7 +60,7 @@ def quiescence_search(state, alpha, beta, current_color, search_params):
             
     return alpha
 
-def negamax(depth, state, alpha, beta, current_color, search_params, tt):
+def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> float:
     """ Search the game tree to a certain depth using negamax with alpha-beta pruning, 
     along with quiescence search at the leaf nodes, and a transposition table to store
     previously evaluated positions."""

@@ -2,6 +2,8 @@ import pygame
 import random
 import threading
 import time
+from multiprocessing import Process, Queue
+from queue import Empty
 from data.classes.chess_bot.Bot import Bot
 from data.classes.chess_bot.GameState import GameState
 from data.states.State import State
@@ -73,7 +75,7 @@ class PvEState(State):
                 self.execute_bot_move(self.bot_move)
                 self.bot_move = None
                 self.bot_thinking = False
-
+                
     def start_bot_thinking(self):
         self.bot_thinking = True
         self.thinking_start_time = time.time()
@@ -138,4 +140,7 @@ class PvEState(State):
     def get_target_fps(self):
         return 15 if self.bot_thinking else 60
     
-    
+def bot_worker(state, color, time_limit, output_queue):
+    ai = Bot(depth=5, color=color, time_limit=time_limit)
+    best_move = ai.get_best_move(state)
+    output_queue.put(best_move if best_move is not None else "NO_MOVE")

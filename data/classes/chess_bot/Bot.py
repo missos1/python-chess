@@ -5,7 +5,7 @@ from .evaluate import *
 from .search import negamax, quiescence_search, TimeOutException
 
 class Bot:
-    def __init__(self, depth=4, color=WHITE, time_limit=30):
+    def __init__(self, depth=4, color=WHITE, time_limit=10):
         self.depth = depth
         self.color = color
         self.time_limit = time_limit
@@ -16,7 +16,7 @@ class Bot:
         # flag: 0 = EXACT, 1 = ALPHA (upper bound), 2 = BETA (lower bound)
         self.transposition_table = {}
 
-    def get_best_move(self, state):
+    def get_best_move(self, state) -> tuple[int, int, int] | None:
         self.nodes_searched = 0
         self.start_time = time.time()
         print(f"Transposition table size at start of search: {len(self.transposition_table)} entries.")
@@ -38,7 +38,7 @@ class Bot:
         tt = self.transposition_table
         
         # Iterative Deepening loop
-        for current_depth in range(1, search_depth + 1):
+        for current_depth in range(1, 1001):
             try:
                 alpha = -float('inf')
                 beta = float('inf')
