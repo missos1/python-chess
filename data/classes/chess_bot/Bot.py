@@ -69,5 +69,20 @@ class Bot:
                 break
                 
         self.nodes_searched = search_params[0]
-        print(f"Bot searched {self.nodes_searched} nodes. Best move: {best_move}")
+        
+        if best_move is not None:
+            source = best_move[0]
+            target = best_move[1]
+        
+        print(f"Bot searched {self.nodes_searched} nodes. Best move: \
+                {index_to_algebraic(source) if best_move else 'None'} to \
+                {index_to_algebraic(target) if best_move else 'None'} with score {alpha}.")
+        
         return best_move
+    
+def index_to_algebraic(index):
+    # get the file (a-h)
+    file_char = chr((index % 8) + ord('a'))
+    # get the rank (1-8)
+    rank_char = str((index // 8) + 1)
+    return file_char + rank_char

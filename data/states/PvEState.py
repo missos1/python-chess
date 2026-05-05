@@ -154,6 +154,18 @@ class PvEState(State):
     def get_target_fps(self):
         return 15 if self.bot_thinking else 60
     
+    def reset(self):
+        self.bot_thread. if self.bot_thread and self.bot_thread.is_alive() else None
+        self.board = None
+        self.player_color = None
+        self.game_over = False
+        self.bot_thinking = False
+        self.bot_move = None
+        self.bot_thread = None
+        self.bot = None
+        self.thinking_start_time = 0
+        self.exit_board = False
+    
 def bot_worker(state, color, time_limit, output_queue):
     ai = Bot(color=color, time_limit=time_limit)
     best_move = ai.get_best_move(state)

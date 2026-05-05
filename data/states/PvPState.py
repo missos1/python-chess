@@ -33,3 +33,6 @@ class PvPState(State):
     def draw(self, surface):
         surface.fill('white')
         self.board.draw(surface)
+
+    def reset(self):
+        self.board = None

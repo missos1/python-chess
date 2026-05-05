@@ -13,6 +13,9 @@ class State:
 
     def draw(self, surface):
         pass
+    
+    def reset(self):        
+        pass
 
     def get_target_fps(self):
         return 60

@@ -53,7 +53,7 @@ def score_move(move, state):
     if flag == FLAG_CAPTURE or flag == FLAG_PROMOTION or flag == FLAG_EN_PASSANT: # Assuming captures can promote
         victim = state.piece_values[target] if flag != FLAG_EN_PASSANT else (W_PAWN if piece_moving == B_PAWN else B_PAWN)
         attacker = piece_moving
-        # MVV-LVA: 1,000,000 ensures captures are ALWAYS searched before quiet moves
+        # MVV-LVA: 1,000,000 ensures captures are ALWAYS searched before quiet moves but behind tt move
         score = 1000000 + (10 * PIECE_POINT_VALUES[victim]) - PIECE_POINT_VALUES[attacker]
         
     # 2. SCORE QUIET MOVES (Using Heat Maps)

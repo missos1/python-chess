@@ -10,6 +10,7 @@ class StateManager:
     def change_state(self, state_name):
         if state_name in self.states:
             self.current_state = self.states[state_name]
+            self.current_state.reset() 
             self.current_state.on_enter()
 
     def handle_events(self, events):
