@@ -201,7 +201,7 @@ class Board:
 		return self.get_square_from_pos(pos).occupying_piece
 
 
-	def get_bitboards(self):
+	def get_bitboards(self) -> list:
 		bitboards = [0] * 16
 
 		for square in self.squares:

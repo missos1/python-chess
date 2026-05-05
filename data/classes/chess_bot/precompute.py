@@ -2,23 +2,23 @@ import random
 from .constants import *
 
 def precompute_zobrist_pieces():
-    random.seed(42)
+    rng = random.Random(42)
     table = []
     for _ in range(13):
-        table.append([random.getrandbits(64) for _ in range(64)])
+        table.append([rng.getrandbits(64) for _ in range(64)])
     return table
 
 def precompute_zobrist_castling():
-    random.seed(142)
-    return [random.getrandbits(64) for _ in range(16)]
+    rng = random.Random(142)
+    return [rng.getrandbits(64) for _ in range(16)]
 
 def precompute_zobrist_turn():
-    random.seed(242)
-    return random.getrandbits(64)
+    rng = random.Random(242)
+    return rng.getrandbits(64)
 
 def precompute_zobrist_en_passant():
-    random.seed(342)
-    return [random.getrandbits(64) for _ in range(8)] 
+    rng = random.Random(342)
+    return [rng.getrandbits(64) for _ in range(8)] 
 
 ZOBRIST_PIECES = precompute_zobrist_pieces()
 ZOBRIST_CASTLING = precompute_zobrist_castling()

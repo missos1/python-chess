@@ -5,8 +5,7 @@ from .evaluate import *
 from .search import negamax, quiescence_search, TimeOutException
 
 class Bot:
-    def __init__(self, depth=4, color=WHITE, time_limit=10):
-        self.depth = depth
+    def __init__(self, color=WHITE, time_limit=10):
         self.color = color
         self.time_limit = time_limit
         self.nodes_searched = 0
@@ -20,11 +19,9 @@ class Bot:
         self.nodes_searched = 0
         self.start_time = time.time()
         print(f"Transposition table size at start of search: {len(self.transposition_table)} entries.")
-        if len(self.transposition_table) > 2000000:
+        if len(self.transposition_table) > 4000000:
             self.transposition_table.clear()
         
-        search_depth = self.depth + state.get_dynamic_depth()
-        print(f"Bot is thinking with a search depth of {self.depth}... (Dynamic depth adjustment: +{state.get_dynamic_depth()})")
         best_move = None
         
         legal_moves = state.get_strictly_legal_moves(self.color)

@@ -173,3 +173,5 @@ PST_LOOKUP = (
     KING_PST     # 12: B_KING
 )
 
+MAX_TT_SIZE = 4000000  # Maximum number of entries in the transposition table before clearing (Reduced from 4 million to save memory)
+# It never got so large in testing, but this is a safeguard against memory bloat in long games or repeated positions.

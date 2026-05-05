@@ -21,26 +21,18 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
         return -99999
     
     moves_to_search = []
-    king_sq = (king_board & -king_board).bit_length() - 1
     
-    if is_square_attacked(king_sq, BLACK if current_color == WHITE else WHITE, state.bitboards):
-        # If we are in check, we need to consider all moves, not just captures, to try to get out of check
-        stand_pat = -99999
-        
-        raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
-        moves_to_search = raw_moves
-    else:
         # evaluate current position
-        stand_pat = evaluate(state, current_color)
+    stand_pat = evaluate(state, current_color)
         
         # alpha-beta pruning on the quiet evaluation of the position before we start looking at captures
-        if stand_pat >= beta:
+    if stand_pat >= beta:
             return beta
-        if alpha < stand_pat:
+    if alpha < stand_pat:
             alpha = stand_pat
         
-        raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
-        moves_to_search = [move for move in raw_moves if move[2] in (FLAG_CAPTURE, FLAG_PROMOTION, FLAG_EN_PASSANT)]
+    raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
+    moves_to_search = [move for move in raw_moves if move[2] in (FLAG_CAPTURE, FLAG_PROMOTION, FLAG_EN_PASSANT)]
     
     moves_to_search.sort(key=lambda m: score_move(m, state), reverse=True)
     
@@ -100,15 +92,11 @@ def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> floa
         return quiescence_search(state, alpha, beta, current_color, search_params)
         
     moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
-    moves.sort(key=lambda m: score_move(m, state), reverse=True)
     
     if tt_move is not None:
-        try:
-            moves.remove(tt_move)
-            moves.insert(0, tt_move)
-        except ValueError:
-            # This happens rarely due to hash collisions (the TT move isn't valid for this specific board state)
-            pass
+        moves.sort(key=lambda m: float('inf') if m == tt_move else score_move(m, state), reverse=True)
+    else:
+        moves.sort(key=lambda m: score_move(m, state), reverse=True)
     
     next_color = BLACK if current_color == WHITE else WHITE
     enemy_color = next_color
@@ -143,7 +131,8 @@ def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> floa
             best_move_found = move
             
         if score >= beta:
-            tt[zobrist_hash] = (depth, beta, 2, move)
+            if score < 90000 and score > -90000:
+                tt[zobrist_hash] = (depth, beta, 2, move)
             return beta
             
         if score > alpha:

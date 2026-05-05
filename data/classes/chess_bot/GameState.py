@@ -4,12 +4,13 @@ from .move_gens import *
 from .precompute import ZOBRIST_PIECES, ZOBRIST_CASTLING, ZOBRIST_TURN, ZOBRIST_EN_PASSANT
 
 class GameState:
-    def __init__(self, bitboards, pieces_array, en_passant_target=None):
+    def __init__(self, bitboards: list, pieces_array: list, castling_rights: int, en_passant_target=None, color = WHITE):
         self.bitboards = bitboards
         self.piece_values = pieces_array
-        self.castling_rights = 15
+        self.castling_rights = castling_rights
         self.en_passant_target = en_passant_target
         self.state_history = []
+        self.turn_color = color
         self.zobrist_hash = self._compute_initial_hash()
 
     def _compute_initial_hash(self):
@@ -21,10 +22,16 @@ class GameState:
         h ^= ZOBRIST_CASTLING[self.castling_rights]
         if self.en_passant_target is not None:
             h ^= ZOBRIST_EN_PASSANT[self.en_passant_target % 8]
-        # Note: Turn is XORed in at the root before negamax / searching
+        h ^= ZOBRIST_TURN if self.turn_color == BLACK else 0
         return h
         
     def make_move(self, move):
+        """This function use history stack and Zobrist hashing 
+        (utilizing the xor operation attribute a ^ b ^ b = a) 
+        to efficiently make a move on the board and update 
+        all relevant state variables. It also handles all special 
+        move types (castling, en passant, promotion) 
+        and updates castling rights accordingly. """
         source, target, flag = move
         
         piece_moved = self.piece_values[source]
@@ -122,7 +129,6 @@ class GameState:
                 self.zobrist_hash ^= ZOBRIST_PIECES[B_ROOK][56]
                 self.zobrist_hash ^= ZOBRIST_PIECES[B_ROOK][59]
 
-        # 5. UPDATE CASTLING RIGHTS
         # King moves: lose both rights
         if piece_moved == W_KING:
             self.castling_rights &= ~(WK_RIGHT | WQ_RIGHT)
@@ -138,6 +144,7 @@ class GameState:
         # Add new castling rights into hash
         self.zobrist_hash ^= ZOBRIST_CASTLING[self.castling_rights]
         self.zobrist_hash ^= ZOBRIST_TURN
+        self.turn_color = BLACK if self.turn_color == WHITE else WHITE
         
         self._update_composites()
 
@@ -221,6 +228,7 @@ class GameState:
         # 4. REVERT THE PIECE ARRAY
         self.piece_values[source] = piece_moved
         self.piece_values[target] = captured_piece
+        self.turn_color = BLACK if self.turn_color == WHITE else WHITE
         
         self._update_composites()
     
@@ -304,15 +312,3 @@ class GameState:
             total_mat += PIECE_POINT_VALUES[piece] * count
             
         return total_mat
-    
-    def get_dynamic_depth(self):
-        total_material = self.get_non_pawn_materials()
-        # If the position is very quiet (no captures and low material), search deeper with quiescence search
-        if total_material > 4000:
-            return 0
-        elif total_material > 2000:
-            return 1
-        elif total_material > 1000:
-            return 2
-        
-        return 4

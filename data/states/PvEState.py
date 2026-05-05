@@ -23,13 +23,14 @@ class PvEState(State):
         self.bot_thread = None
         self.bot = None
         self.thinking_start_time = 0
+        self.exit_board = False
 
     def on_enter(self) -> None:
         # Fresh board and random color assignment on load
         self.player_color = random.choice(['white', 'black'])
         self.board = Board(600, 600, is_flipped=(self.player_color == 'black'))
         self.game_over = False
-        self.bot = Bot(depth=5, color=BLACK if self.player_color == 'white' else WHITE)
+        self.bot = Bot(color=BLACK if self.player_color == 'white' else WHITE)
         print(f"PvE Started! You are playing as {self.player_color}.")
         
 
@@ -48,21 +49,29 @@ class PvEState(State):
                 if event.key == pygame.K_d:
                     # Debug: Visualize bitboard for a piece type
                     bitboard_visualize(self.board.get_bitboards())
+                elif event.key == pygame.K_ESCAPE:
+                    self.exit_board = True
                     
 
     def update(self):
         if self.game_over:
             return
+        
+        if self.exit_board:
+            self.manager.change_state('menu')
+            return
 
         if self.board.is_in_checkmate('black'):
             print('White wins!')
             self.game_over = True
-            self.manager.change_state('menu')
+            if self.exit_board:
+                self.manager.change_state('menu')
             return
         elif self.board.is_in_checkmate('white'):
             print('Black wins!')
             self.game_over = True
-            self.manager.change_state('menu')
+            if self.exit_board:
+                self.manager.change_state('menu')
             return
 
         # If it is not the player's turn, instantly trigger the bot
@@ -83,16 +92,21 @@ class PvEState(State):
         
         current_bitboards = self.board.get_bitboards()
         pieces_array = create_piece_array_from_bitboards(current_bitboards)
+        castling_rights = self.board.castling_rights
         
         if self.board.en_passant_target is None:
             ep_index = None
         else:
             x, y = self.board.en_passant_target
             ep_index = (7 - y) * 8 + x
-
-        engine_state = GameState(current_bitboards, pieces_array, en_passant_target=ep_index)
-        # Using the property we defined in the Board class
-        engine_state.castling_rights = self.board.castling_rights 
+ 
+        
+        engine_state = GameState(current_bitboards, 
+                                 pieces_array, 
+                                 castling_rights, 
+                                 en_passant_target=ep_index, 
+                                 color=self.bot.color
+                                )
         
         def worker(state):
             ai = self.bot
@@ -141,6 +155,6 @@ class PvEState(State):
         return 15 if self.bot_thinking else 60
     
 def bot_worker(state, color, time_limit, output_queue):
-    ai = Bot(depth=5, color=color, time_limit=time_limit)
+    ai = Bot(color=color, time_limit=time_limit)
     best_move = ai.get_best_move(state)
     output_queue.put(best_move if best_move is not None else "NO_MOVE")
