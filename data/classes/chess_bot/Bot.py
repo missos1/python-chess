@@ -22,7 +22,9 @@ class Bot:
         print(f"Transposition table size at start of search: {len(self.transposition_table)} entries.")
         if len(self.transposition_table) > 2000000:
             self.transposition_table.clear()
-            
+        
+        search_depth = self.depth + state.get_dynamic_depth()
+        print(f"Bot is thinking with a search depth of {self.depth}... (Dynamic depth adjustment: +{state.get_dynamic_depth()})")
         best_move = None
         
         legal_moves = state.get_strictly_legal_moves(self.color)
@@ -36,7 +38,7 @@ class Bot:
         tt = self.transposition_table
         
         # Iterative Deepening loop
-        for current_depth in range(1, self.depth + 1):
+        for current_depth in range(1, search_depth + 1):
             try:
                 alpha = -float('inf')
                 beta = float('inf')

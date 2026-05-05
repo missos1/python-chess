@@ -295,3 +295,24 @@ class GameState:
                 undo_move(move)
                 
         return capture_moves
+    
+    def get_non_pawn_materials(self):
+        total_mat = 0
+        heavy_pieces = [W_QUEEN, W_ROOK, W_BISHOP, W_KNIGHT, B_QUEEN, B_ROOK, B_BISHOP, B_KNIGHT]
+        for piece in heavy_pieces:
+            count = (self.bitboards[piece]).bit_count()
+            total_mat += PIECE_POINT_VALUES[piece] * count
+            
+        return total_mat
+    
+    def get_dynamic_depth(self):
+        total_material = self.get_non_pawn_materials()
+        # If the position is very quiet (no captures and low material), search deeper with quiescence search
+        if total_material > 4000:
+            return 0
+        elif total_material > 2000:
+            return 1
+        elif total_material > 1000:
+            return 2
+        
+        return 4

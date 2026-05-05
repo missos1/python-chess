@@ -4,8 +4,6 @@ from .move_gens import get_set_bits
 def evaluate(state, current_turn_color):
     white_score = 0
     black_score = 0
-    w_bishops = 0
-    b_bishops = 0
     
     # Loop through the Hybrid Array exactly once
     for piece_id in range(W_PAWN, B_KING + 1):
@@ -20,7 +18,11 @@ def evaluate(state, current_turn_color):
         pst = PST_LOOKUP[piece_id]
 
         # Get PST bonus (Mirror the square if Black!)
-        for sq in get_set_bits(piece_bitboard):
+        while piece_bitboard:
+            lsb = piece_bitboard & -piece_bitboard
+            sq = lsb.bit_length() - 1
+            piece_bitboard &= piece_bitboard - 1
+            
             pst_bonus = 0
             if pst:
                 read_sq = sq if is_white else sq ^ 56  # flip the square vertically for Black pieces

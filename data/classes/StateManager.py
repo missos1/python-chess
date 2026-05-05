@@ -23,3 +23,9 @@ class StateManager:
     def draw(self, surface):
         if self.current_state:
             self.current_state.draw(surface)
+
+    def get_target_fps(self):
+        if self.current_state and hasattr(self.current_state, 'get_target_fps'):
+            return self.current_state.get_target_fps()
+        return 60
+

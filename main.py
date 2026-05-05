@@ -35,7 +35,7 @@ while running:
 	manager.draw(screen)
 	pygame.display.update()
 	
-	clock.tick(60)
+	clock.tick(manager.get_target_fps())
 
 pygame.quit()
 sys.exit()

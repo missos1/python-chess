@@ -27,7 +27,7 @@ class PvEState(State):
         self.player_color = random.choice(['white', 'black'])
         self.board = Board(600, 600, is_flipped=(self.player_color == 'black'))
         self.game_over = False
-        self.bot = Bot(depth=6, color=BLACK if self.player_color == 'white' else WHITE)
+        self.bot = Bot(depth=5, color=BLACK if self.player_color == 'white' else WHITE)
         print(f"PvE Started! You are playing as {self.player_color}.")
         
 
@@ -134,5 +134,8 @@ class PvEState(State):
     def draw(self, surface):
         surface.fill('white')
         self.board.draw(surface)
+
+    def get_target_fps(self):
+        return 15 if self.bot_thinking else 60
     
     
