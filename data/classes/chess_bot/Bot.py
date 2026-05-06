@@ -5,7 +5,7 @@ from .evaluate import *
 from .search import negamax, quiescence_search, TimeOutException
 
 class Bot:
-    def __init__(self, color=WHITE, time_limit=1):
+    def __init__(self, color=WHITE, time_limit=3):
         self.color = color
         self.time_limit = time_limit
         self.nodes_searched = 0
@@ -74,9 +74,10 @@ class Bot:
             source = best_move[0]
             target = best_move[1]
         
-        print(f"Bot searched {self.nodes_searched} nodes. Best move: \
-                {index_to_algebraic(source) if best_move else 'None'} to \
-                {index_to_algebraic(target) if best_move else 'None'} with score {alpha}.")
+        print(f"Bot searched {self.nodes_searched} nodes.")
+        print(f"Best move: {index_to_algebraic(source) if best_move else 'None'} "
+              f"to {index_to_algebraic(target) if best_move else 'None'}."
+        )
         
         return best_move
     

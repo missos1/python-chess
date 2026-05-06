@@ -148,7 +148,9 @@ class PvEState(State):
         else:
             # If get_best_move returns None, the Bot is in Checkmate or Stalemate.
             pass
-
+        print(f"{self.board.en_passant_target} is the new en passant target after bot move.")
+        
+        
     def draw(self, surface):
         surface.fill('white')
         self.board.draw(surface)

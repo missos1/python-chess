@@ -109,7 +109,9 @@ class King(Piece):
 				board.is_in_check(self.color, board_change=[self.pos, (self.x + 1, self.y)]) or
 				board.is_in_check(self.color, board_change=[self.pos, (self.x + 2, self.y)])
 			)
-			if path_safe:
+			path_empty = ((board.get_piece_from_pos((self.x + 1, self.y)) is None) and  
+   						(board.get_piece_from_pos((self.x + 2, self.y)) is None))
+			if path_safe and path_empty:
 				output.append(board.get_square_from_pos((self.x + 2, self.y)))
 
 		if castle_rights in ['queenside', 'both']:
@@ -117,7 +119,9 @@ class King(Piece):
 				board.is_in_check(self.color, board_change=[self.pos, (self.x - 1, self.y)]) or
 				board.is_in_check(self.color, board_change=[self.pos, (self.x - 2, self.y)])
 			)
-			if path_safe:
+			path_empty = ((board.get_piece_from_pos((self.x - 1, self.y)) is None) and  
+   						(board.get_piece_from_pos((self.x - 2, self.y)) is None))
+			if path_safe and path_empty:
 				output.append(board.get_square_from_pos((self.x - 2, self.y)))
 
 		return output

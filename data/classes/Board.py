@@ -20,7 +20,7 @@ class Board:
 		self.turn = 'white'
 		self.is_flipped = is_flipped
 		self.en_passant_target = None
-		self.en_passant_turn = None
+		self.en_passant_turn = None # which side made an en passant double pawn move.
 
 		self.config = [
 			['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
