@@ -1,7 +1,7 @@
 def evaluate(state):
     score = 0
 
-    # ✅ FIX: dùng data có sẵn trong state
+    #FIX: dùng data có sẵn trong state
     pieces = state.piece_values
 
     values = {
