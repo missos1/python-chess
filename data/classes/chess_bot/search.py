@@ -8,10 +8,12 @@ from .GameState import GameState
 class TimeOutException(Exception):
     pass
 
-def quiescence_search(state: GameState, alpha, beta, current_color, search_params) -> float:
+def quiescence_search(state: GameState, alpha, beta, current_color, search_params, stop_event=None) -> float:
     # search_params = [nodes_searched, start_time, time_limit]
     search_params[0] += 1
     if search_params[0] & 4095 == 0:
+        if stop_event is not None and stop_event.is_set():
+            raise TimeOutException()
         if time.time() - search_params[1] > search_params[2]:
             raise TimeOutException()
     
@@ -44,7 +46,7 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
         
         make_move(move)
         try:
-            score = -quiescence_search(state, -beta, -alpha, next_color, search_params)
+            score = -quiescence_search(state, -beta, -alpha, next_color, search_params, stop_event)
         finally:
             undo_move(move)
         
@@ -55,12 +57,14 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
             
     return alpha
 
-def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt) -> float:
+def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt, stop_event=None) -> float:
     """ Search the game tree to a certain depth using negamax with alpha-beta pruning, 
     along with quiescence search at the leaf nodes, and a transposition table to store
     previously evaluated positions."""
     search_params[0] += 1                                           # Increment nodes searched
     if search_params[0] & 4095 == 0:                                # Check time every 4095 nodes
+        if stop_event is not None and stop_event.is_set():
+            raise TimeOutException()
         if time.time() - search_params[1] > search_params[2]:       # If we've exceeded our time limit, raise an exception to stop the search
             raise TimeOutException()                                
 
@@ -114,7 +118,8 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                     -beta + 1, 
                     enemy_color, 
                     search_params, 
-                    tt
+                    tt,
+                    stop_event
             )
             if null_move_score >= beta:
                 search_params[3] += 1  # Increment null prune count for stats
@@ -123,7 +128,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
             state.undo_null_move()  # Ensure we always undo the null move even if we time out
             
     if depth <= 0:
-        return quiescence_search(state, alpha, beta, current_color, search_params)
+        return quiescence_search(state, alpha, beta, current_color, search_params, stop_event)
         
     moves = generate_all_moves(
         state.bitboards, 
@@ -170,7 +175,8 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                 -alpha, 
                 enemy_color, 
                 search_params, 
-                tt
+                tt,
+                stop_event
             )
         finally:
             undo_move(move)

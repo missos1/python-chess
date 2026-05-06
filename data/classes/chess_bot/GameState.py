@@ -25,7 +25,7 @@ class GameState:
         h ^= ZOBRIST_TURN if self.turn_color == BLACK else 0
         return h
         
-    def make_move(self, move):
+    def make_move(self, move, promotion_piece=None):
         """This function use history stack and Zobrist hashing 
         (utilizing the xor operation attribute a ^ b ^ b = a) 
         to efficiently make a move on the board and update 
@@ -90,14 +90,12 @@ class GameState:
             self.zobrist_hash ^= ZOBRIST_PIECES[piece_moved][target] # Remove Pawn from hatch
             
             # Spawn the Queen and update the piece array
-            if piece_moved == W_PAWN:
-                self.bitboards[W_QUEEN] ^= (1 << target)
-                self.piece_values[target] = W_QUEEN
-                self.zobrist_hash ^= ZOBRIST_PIECES[W_QUEEN][target] # Add Queen
-            else:
-                self.bitboards[B_QUEEN] ^= (1 << target)
-                self.piece_values[target] = B_QUEEN
-                self.zobrist_hash ^= ZOBRIST_PIECES[B_QUEEN][target] # Add Queen
+            if promotion_piece is None:
+                promotion_piece = W_QUEEN if piece_moved == W_PAWN else B_QUEEN
+
+            self.bitboards[promotion_piece] ^= (1 << target)
+            self.piece_values[target] = promotion_piece
+            self.zobrist_hash ^= ZOBRIST_PIECES[promotion_piece][target] # Add promoted piece
 
         elif flag == FLAG_CASTLE_KS:
             if target == 6: # White O-O

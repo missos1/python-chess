@@ -1,3 +1,4 @@
+import sys
 import time
 from .GameState import *
 from .constants import *
@@ -5,9 +6,10 @@ from .evaluate import *
 from .search import negamax, TimeOutException
 
 class Bot:
-    def __init__(self, color=WHITE, time_limit=6):
+    def __init__(self, color=WHITE, time_limit=6, verbose=False):
         self.color = color
         self.time_limit = time_limit
+        self.verbose = verbose
         self.nodes_searched = 0
         self.start_time = 0
         
@@ -15,10 +17,14 @@ class Bot:
         # flag: TT_EXACT, TT_UPPER_BOUND, or TT_LOWER_BOUND
         self.transposition_table = {}
 
-    def get_best_move(self, state) -> tuple[int, int, int] | None:
+    def _log(self, *parts):
+        if self.verbose:
+            print(*parts, file=sys.stderr)
+
+    def get_best_move(self, state, max_depth=None, stop_event=None) -> tuple[int, int, int] | None:
         self.nodes_searched = 0
         self.start_time = time.time()
-        print(f"Transposition table size at start of search: {len(self.transposition_table)} entries.")
+        self._log(f"Transposition table size at start of search: {len(self.transposition_table)} entries.")
         if len(self.transposition_table) > 4000000:
             self.transposition_table.clear()
         
@@ -35,9 +41,15 @@ class Bot:
         # search_params = [nodes_searched, start_time, time_limit]
         search_params = [0, self.start_time, self.time_limit, null_prune_times]
         tt = self.transposition_table
+        current_depth = 0
         
         # Iterative Deepening loop
         for current_depth in range(1, 1001):
+            if max_depth is not None and current_depth > max_depth:
+                break
+            if stop_event is not None and stop_event.is_set():
+                raise TimeOutException()
+
             try:
                 alpha = -INFINITY
                 beta = INFINITY
@@ -49,9 +61,12 @@ class Bot:
                     legal_moves.insert(0, best_move)
                 
                 for move in legal_moves:
+                    if stop_event is not None and stop_event.is_set():
+                        raise TimeOutException()
+
                     state.make_move(move)
                     enemy_color = BLACK if self.color == WHITE else WHITE
-                    score = -negamax(current_depth - 1, state, -beta, -alpha, enemy_color, search_params, tt)
+                    score = -negamax(current_depth - 1, state, -beta, -alpha, enemy_color, search_params, tt, stop_event)
                     state.undo_move(move)
                     
                     if score > alpha:
@@ -69,21 +84,23 @@ class Bot:
                 #     break
                     
             except TimeOutException:
-                print(f"--> Aborting search! Max time limit ({self.time_limit}s) reached during depth {current_depth}.")
+                self._log(f"--> Aborting search! Max time limit ({self.time_limit}s) reached during depth {current_depth}.")
                 break
                 
         self.nodes_searched = search_params[0]
-        
-        if best_move is not None:
-            source = best_move[0]
-            target = best_move[1]
-        
-        print(f"Bot searched {self.nodes_searched} nodes.")
-        print(f"Null prunes attempted: {search_params[3]}")
-        print(f"depth reached: {current_depth}")
-        print(f"Best move: {index_to_algebraic(source) if best_move else 'None'} "
-              f"to {index_to_algebraic(target) if best_move else 'None'}."
-        )
+
+        if self.verbose:
+            if best_move is not None:
+                source = best_move[0]
+                target = best_move[1]
+
+            self._log(f"Bot searched {self.nodes_searched} nodes.")
+            self._log(f"Null prunes attempted: {search_params[3]}")
+            self._log(f"depth reached: {current_depth}")
+            self._log(
+                f"Best move: {index_to_algebraic(source) if best_move else 'None'} "
+                f"to {index_to_algebraic(target) if best_move else 'None'}."
+            )
         
         return best_move
     
