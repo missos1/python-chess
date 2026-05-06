@@ -140,7 +140,9 @@ class PvEState(State):
             if piece:
                 # We use force=True because our mathematical Bot already verified 
                 # this move is 100% strictly legal!
+                old_y = piece.y
                 if piece.move(self.board, target_square, force=True):
+                    self.board.update_en_passant_target(piece, old_y)
                     self.board.turn = self.player_color
                     
         else:

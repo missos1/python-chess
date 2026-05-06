@@ -107,7 +107,7 @@ class Board:
 	def handle_click(self, mx, my, is_flipped=False):
 		x = mx // self.square_width if not is_flipped else 7 - (mx // self.square_width)
 		y = my // self.square_height if not is_flipped else 7 - (my // self.square_height)
-    
+	
 		if x < 0 or x > 7 or y < 0 or y > 7:
 			return
 		clicked_square = self.get_square_from_pos((x, y))
@@ -121,15 +121,19 @@ class Board:
 			moving_piece = self.selected_piece
 			old_y = self.selected_piece.y
 			if moving_piece.move(self, clicked_square):
-				if moving_piece.notation == ' ' and abs(moving_piece.y - old_y) == 2:
-					self.en_passant_target = (moving_piece.x, (moving_piece.y + old_y) // 2)
-					self.en_passant_turn = self.turn
-				else:
-					self.en_passant_target = None
+				self.update_en_passant_target(moving_piece, old_y)
 				self.turn = 'white' if self.turn == 'black' else 'black'
 			elif clicked_square.occupying_piece is not None:
 				if clicked_square.occupying_piece.color == self.turn:
 					self.selected_piece = clicked_square.occupying_piece
+
+	def update_en_passant_target(self, moving_piece, old_y):
+		# Clear any previous en-passant target first (it only lasts for one opposing move).
+		self.en_passant_target = None
+		self.en_passant_turn = None
+		if isinstance(moving_piece, Pawn) and abs(moving_piece.y - old_y) == 2:
+			self.en_passant_target = (moving_piece.x, (moving_piece.y + old_y) // 2)
+			self.en_passant_turn = self.turn
 
 
 
@@ -255,10 +259,6 @@ class Board:
 			self.get_square_from_pos(self.selected_piece.pos).highlight = True
 			for square in self.selected_piece.get_valid_moves(self):
 				square.highlight = True
-
-		if self.en_passant_target is not None \
-			and self.turn == self.en_passant_turn:
-				self.en_passant_target = None
 
 		for square in self.squares:
 			square.draw(display)
