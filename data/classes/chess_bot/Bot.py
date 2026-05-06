@@ -5,7 +5,7 @@ from .evaluate import *
 from .search import negamax, quiescence_search, TimeOutException
 
 class Bot:
-    def __init__(self, color=WHITE, time_limit=10):
+    def __init__(self, color=WHITE, time_limit=1):
         self.color = color
         self.time_limit = time_limit
         self.nodes_searched = 0

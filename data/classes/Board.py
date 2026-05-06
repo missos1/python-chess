@@ -20,6 +20,7 @@ class Board:
 		self.turn = 'white'
 		self.is_flipped = is_flipped
 		self.en_passant_target = None
+		self.en_passant_turn = None
 
 		self.config = [
 			['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
@@ -106,6 +107,7 @@ class Board:
 	def handle_click(self, mx, my, is_flipped=False):
 		x = mx // self.square_width if not is_flipped else 7 - (mx // self.square_width)
 		y = my // self.square_height if not is_flipped else 7 - (my // self.square_height)
+    
 		if x < 0 or x > 7 or y < 0 or y > 7:
 			return
 		clicked_square = self.get_square_from_pos((x, y))
@@ -121,6 +123,7 @@ class Board:
 			if moving_piece.move(self, clicked_square):
 				if moving_piece.notation == ' ' and abs(moving_piece.y - old_y) == 2:
 					self.en_passant_target = (moving_piece.x, (moving_piece.y + old_y) // 2)
+					self.en_passant_turn = self.turn
 				else:
 					self.en_passant_target = None
 				self.turn = 'white' if self.turn == 'black' else 'black'
@@ -252,6 +255,10 @@ class Board:
 			self.get_square_from_pos(self.selected_piece.pos).highlight = True
 			for square in self.selected_piece.get_valid_moves(self):
 				square.highlight = True
+
+		if self.en_passant_target is not None \
+			and self.turn == self.en_passant_turn:
+				self.en_passant_target = None
 
 		for square in self.squares:
 			square.draw(display)
