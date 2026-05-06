@@ -30,15 +30,17 @@ class Bot:
             
         legal_moves.sort(key=lambda m: score_move(m, state), reverse=True)
         
+        null_prune_times = 0
+        null_prune_scores = []
         # search_params = [nodes_searched, start_time, time_limit]
-        search_params = [0, self.start_time, self.time_limit]
+        search_params = [0, self.start_time, self.time_limit, null_prune_times]
         tt = self.transposition_table
         
         # Iterative Deepening loop
         for current_depth in range(1, 1001):
             try:
-                alpha = -float('inf')
-                beta = float('inf')
+                alpha = -INFINITY
+                beta = INFINITY
                 depth_best_move = None
                 
                 # Bring the best move from the previous depth to the front to maximize Alpha-Beta snips
@@ -77,6 +79,8 @@ class Bot:
             target = best_move[1]
         
         print(f"Bot searched {self.nodes_searched} nodes.")
+        print(f"Null prunes attempted: {search_params[3]}")
+        print(f"depth reached: {current_depth}")
         print(f"Best move: {index_to_algebraic(source) if best_move else 'None'} "
               f"to {index_to_algebraic(target) if best_move else 'None'}."
         )

@@ -11,7 +11,7 @@ class TimeOutException(Exception):
 def quiescence_search(state: GameState, alpha, beta, current_color, search_params) -> float:
     # search_params = [nodes_searched, start_time, time_limit]
     search_params[0] += 1
-    if search_params[0] & 2047 == 0:
+    if search_params[0] & 4095 == 0:
         if time.time() - search_params[1] > search_params[2]:
             raise TimeOutException()
     
@@ -60,15 +60,18 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
     along with quiescence search at the leaf nodes, and a transposition table to store
     previously evaluated positions."""
     search_params[0] += 1                                           # Increment nodes searched
-    if search_params[0] & 2047 == 0:                                # Check time every 2048 nodes
+    if search_params[0] & 4095 == 0:                                # Check time every 4095 nodes
         if time.time() - search_params[1] > search_params[2]:       # If we've exceeded our time limit, raise an exception to stop the search
-            raise TimeOutException()                                #
+            raise TimeOutException()                                
 
     # Check for terminal states (Checkmate or Stalemate)
     king_board = state.bitboards[W_KING] if current_color == WHITE else state.bitboards[B_KING]
+    enemy_king_board = state.bitboards[B_KING] if current_color == WHITE else state.bitboards[W_KING]
     if king_board == 0:
         return -99999 - depth 
+    
     king_sq = (king_board & -king_board).bit_length() - 1
+    enemy_king_sq = (enemy_king_board & -enemy_king_board).bit_length() - 1
     
     next_color = BLACK if current_color == WHITE else WHITE
     enemy_color = next_color
@@ -97,22 +100,24 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                 
     # Null Move Pruning: If we are not in a quiet position 
     # (i.e. there is significant material on the board), we can try skipping our move and see if the opponent has a strong response. If they do, then we know we need to search this position more deeply. If they don't, we can safely assume this position is good for us and cut off the search.
-    nmp = True if state.get_non_pawn_materials() > 2000 else False
-    is_in_check = is_square_attacked(king_sq, BLACK if current_color == WHITE else WHITE, state.bitboards)
+    not_zugzwang = True if state.get_non_pawn_materials() > 0 else False
+    is_in_check = is_square_attacked(king_sq, enemy_color, state.bitboards)
+    can_capture_enemy_king = is_square_attacked(enemy_king_sq, current_color, state.bitboards)
     
-    if nmp and not is_in_check and depth > 2:
+    if depth > 2 and not_zugzwang and not (is_in_check or can_capture_enemy_king):
         state.make_null_move()
         try:
             null_move_score = -negamax(
-                depth - 3, 
-                state, 
-                -beta, 
-                -beta + 1, 
-                BLACK if current_color == WHITE else WHITE, 
-                search_params, 
-                tt
+                    depth - 3, 
+                    state, 
+                    -beta, 
+                    -beta + 1, 
+                    enemy_color, 
+                    search_params, 
+                    tt
             )
             if null_move_score >= beta:
+                search_params[3] += 1  # Increment null prune count for stats
                 return beta
         finally:
             state.undo_null_move()  # Ensure we always undo the null move even if we time out
@@ -126,6 +131,8 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
         state.castling_rights, 
         state.en_passant_target
     )
+    
+    # moves = state.get_strictly_legal_moves(current_color)
     
     if tt_move is not None:
         moves.sort(key=lambda m: float('inf') if m == tt_move else score_move(m, state), reverse=True)
@@ -161,7 +168,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                 state, 
                 -beta, 
                 -alpha, 
-                next_color, 
+                enemy_color, 
                 search_params, 
                 tt
             )
