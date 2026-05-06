@@ -60,8 +60,6 @@ class GameState:
         
         # 3. STANDARD BITBOARD TELEPORTATION (XOR)
         # Move the attacker
-        # 3. STANDARD BITBOARD TELEPORTATION (XOR)
-        # Move the attacker
         
         self.bitboards[piece_moved] ^= (1 << source) | (1 << target)
         
@@ -161,6 +159,13 @@ class GameState:
         self.bitboards[OCCUPIED] = self.bitboards[W_PIECES] | self.bitboards[B_PIECES]
     
     def undo_move(self, move):
+        """This function uses the history stack and Zobrist hashing 
+        to efficiently undo a move, including all special move types and
+        restoring castling rights. By popping the last state from the 
+        history stack, we can revert to the previous position without needing 
+        to recompute everything from scratch. The use of XOR with Zobrist hashing 
+        allows us to quickly update the hash back to its previous value.
+        """
         source, target, flag = move
         
         # 1. POP THE HISTORY
@@ -231,9 +236,35 @@ class GameState:
         self.turn_color = BLACK if self.turn_color == WHITE else WHITE
         
         self._update_composites()
+        
+    def make_null_move(self):
+        """This function is used for Null Move Pruning in the search
+        algorithm. By making a "null move" (i.e., skipping our turn), we can test 
+        if the opponent has any strong responses. If they do, it indicates that we need 
+        to search this position more deeply. If they don't, we can safely assume this position 
+        is good for us and cut off the search. The history stack and Zobrist hash are updated accordingly 
+        to allow for an efficient undo of the null move.
+        """
+        self.state_history.append((self.castling_rights, None, self.zobrist_hash, self.en_passant_target))
+        
+        self.zobrist_hash ^= ZOBRIST_CASTLING[self.castling_rights]
+        
+        if self.en_passant_target is not None:
+            self.zobrist_hash ^= ZOBRIST_EN_PASSANT[self.en_passant_target % 8]
+        self.en_passant_target = None
+        
+        self.zobrist_hash ^= ZOBRIST_TURN
+        self.turn_color = BLACK if self.turn_color == WHITE else WHITE
+        
+    def undo_null_move(self):
+        old_castling_rights, _, old_zobrist_hash, old_en_passant = self.state_history.pop()
+        
+        self.castling_rights = old_castling_rights
+        self.zobrist_hash = old_zobrist_hash
+        self.en_passant_target = old_en_passant
+        self.turn_color = BLACK if self.turn_color == WHITE else WHITE
     
     def get_strictly_legal_moves(self, color):
-        # Placeholder for move filtering logic to ensure moves don't leave king in check or castle through check or move into check
         raw_moves = generate_all_moves(self.bitboards, color, self.castling_rights, self.en_passant_target)
         
         legal_moves = []

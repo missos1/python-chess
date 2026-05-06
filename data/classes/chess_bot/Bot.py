@@ -2,10 +2,10 @@ import time
 from .GameState import *
 from .constants import *
 from .evaluate import *
-from .search import negamax, quiescence_search, TimeOutException
+from .search import negamax, TimeOutException
 
 class Bot:
-    def __init__(self, color=WHITE, time_limit=3):
+    def __init__(self, color=WHITE, time_limit=6):
         self.color = color
         self.time_limit = time_limit
         self.nodes_searched = 0
@@ -59,10 +59,12 @@ class Bot:
                 if depth_best_move:
                     best_move = depth_best_move
                     
+                # This isn't used because search uses pseudo-legal move generation, 
+                # but it can be helpful for debugging to see if the search is correctly identifying checkmates
                 # If we've found a guaranteed, forced checkmate against the opponent, stop searching immediately!
-                if alpha > 90000:
-                    print(f"--> Found a forced Checkmate! Ending search early at depth {current_depth}.")
-                    break
+                # if alpha > 90000:
+                #     print(f"--> Found a forced Checkmate! Ending search early at depth {current_depth}.")
+                #     break
                     
             except TimeOutException:
                 print(f"--> Aborting search! Max time limit ({self.time_limit}s) reached during depth {current_depth}.")

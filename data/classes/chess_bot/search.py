@@ -41,9 +41,12 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
     undo_move = state.undo_move
     
     for move in moves_to_search:
+        
         make_move(move)
-        score = -quiescence_search(state, -beta, -alpha, next_color, search_params)
-        undo_move(move)
+        try:
+            score = -quiescence_search(state, -beta, -alpha, next_color, search_params)
+        finally:
+            undo_move(move)
         
         if score >= beta:
             return beta
@@ -52,7 +55,7 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
             
     return alpha
 
-def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> float:
+def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt) -> float:
     """ Search the game tree to a certain depth using negamax with alpha-beta pruning, 
     along with quiescence search at the leaf nodes, and a transposition table to store
     previously evaluated positions."""
@@ -65,9 +68,13 @@ def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> floa
     king_board = state.bitboards[W_KING] if current_color == WHITE else state.bitboards[B_KING]
     if king_board == 0:
         return -99999 - depth 
-            
+    king_sq = (king_board & -king_board).bit_length() - 1
+    
+    next_color = BLACK if current_color == WHITE else WHITE
+    enemy_color = next_color
     alpha_orig = alpha
     zobrist_hash = state.zobrist_hash
+
     tt_entry = tt.get(zobrist_hash)
     
     tt_move = None
@@ -88,18 +95,43 @@ def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> floa
             if tt_score >= beta:
                 return beta
                 
+    # Null Move Pruning: If we are not in a quiet position 
+    # (i.e. there is significant material on the board), we can try skipping our move and see if the opponent has a strong response. If they do, then we know we need to search this position more deeply. If they don't, we can safely assume this position is good for us and cut off the search.
+    nmp = True if state.get_non_pawn_materials() > 2000 else False
+    is_in_check = is_square_attacked(king_sq, BLACK if current_color == WHITE else WHITE, state.bitboards)
+    
+    if nmp and not is_in_check and depth > 2:
+        state.make_null_move()
+        try:
+            null_move_score = -negamax(
+                depth - 3, 
+                state, 
+                -beta, 
+                -beta + 1, 
+                BLACK if current_color == WHITE else WHITE, 
+                search_params, 
+                tt
+            )
+            if null_move_score >= beta:
+                return beta
+        finally:
+            state.undo_null_move()  # Ensure we always undo the null move even if we time out
+            
     if depth <= 0:
         return quiescence_search(state, alpha, beta, current_color, search_params)
         
-    moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
+    moves = generate_all_moves(
+        state.bitboards, 
+        current_color, 
+        state.castling_rights, 
+        state.en_passant_target
+    )
     
     if tt_move is not None:
         moves.sort(key=lambda m: float('inf') if m == tt_move else score_move(m, state), reverse=True)
     else:
         moves.sort(key=lambda m: score_move(m, state), reverse=True)
     
-    next_color = BLACK if current_color == WHITE else WHITE
-    enemy_color = next_color
     make_move = state.make_move
     undo_move = state.undo_move
     
@@ -123,8 +155,18 @@ def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> floa
                     continue
 
         make_move(move)
-        score = -negamax(depth - 1, state, -beta, -alpha, next_color, search_params, tt)
-        undo_move(move)
+        try:
+            score = -negamax(
+                depth - 1, 
+                state, 
+                -beta, 
+                -alpha, 
+                next_color, 
+                search_params, 
+                tt
+            )
+        finally:
+            undo_move(move)
         
         if score > best_score:
             best_score = score
@@ -144,8 +186,7 @@ def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> floa
     # If all pseudo-legal moves resulted in our King getting captured, 
     # the best_score will be heavily negative.
     if best_score <= -90000:
-        king_sq = (king_board & -king_board).bit_length() - 1
-        if not is_square_attacked(king_sq, enemy_color, state.bitboards):
+        if not is_in_check:
             return 0 # We are not in check, so it's a Stalemate (Draw)
         return best_score # We are in check, Checkmate!
             
