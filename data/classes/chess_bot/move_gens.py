@@ -29,7 +29,8 @@ def get_pawns_moves(bitboards, color, en_passant_target=None):
 			
 			if (1 << single_push) & empty:
 				if single_push >= 56:
-					moves.append((pawn, single_push, FLAG_PROMOTION))
+					for promo_flag in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
+						moves.append((pawn, single_push, promo_flag))
 				else:    
 					moves.append((pawn, single_push, FLAG_QUIET))
 				
@@ -45,7 +46,8 @@ def get_pawns_moves(bitboards, color, en_passant_target=None):
 				target = lsb.bit_length() - 1
 				captures_board &= captures_board - 1
 				if target >= 56:
-					moves.append((pawn, target, FLAG_PROMOTION))
+					for promo_flag in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
+						moves.append((pawn, target, promo_flag))
 				else:
 					moves.append((pawn, target, FLAG_CAPTURE))
 					
@@ -66,7 +68,8 @@ def get_pawns_moves(bitboards, color, en_passant_target=None):
 			
 			if (1 << single_push) & empty:
 				if single_push <= 7:
-					moves.append((pawn, single_push, FLAG_PROMOTION))
+					for promo_flag in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
+						moves.append((pawn, single_push, promo_flag))
 				else:    
 					moves.append((pawn, single_push, FLAG_QUIET))
 				
@@ -83,7 +86,8 @@ def get_pawns_moves(bitboards, color, en_passant_target=None):
 				captures_board &= captures_board - 1
 				
 				if target <= 7:
-					moves.append((pawn, target, FLAG_PROMOTION))
+					for promo_flag in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
+						moves.append((pawn, target, promo_flag))
 				else:
 					moves.append((pawn, target, FLAG_CAPTURE))
 					

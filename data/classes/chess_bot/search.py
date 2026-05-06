@@ -34,7 +34,8 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
             alpha = stand_pat
         
     raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
-    moves_to_search = [move for move in raw_moves if move[2] in (FLAG_CAPTURE, FLAG_PROMOTION, FLAG_EN_PASSANT)]
+    moves_to_search = [move for move in raw_moves if move[2] in 
+                       (FLAG_CAPTURE, range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1), FLAG_EN_PASSANT)]
     
     moves_to_search.sort(key=lambda m: score_move(m, state), reverse=True)
     

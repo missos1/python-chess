@@ -1,50 +1,12 @@
 import sys
 import threading
 
+
 from .Bot import Bot
-from .GameState import GameState
 from .constants import *
+from .GameState import GameState
+
 from .move_gens import create_piece_array_from_bitboards
-
-START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-
-FEN_CHAR_TO_PIECE = {
-    "P": W_PAWN,
-    "N": W_KNIGHT,
-    "B": W_BISHOP,
-    "R": W_ROOK,
-    "Q": W_QUEEN,
-    "K": W_KING,
-    "p": B_PAWN,
-    "n": B_KNIGHT,
-    "b": B_BISHOP,
-    "r": B_ROOK,
-    "q": B_QUEEN,
-    "k": B_KING,
-}
-
-PIECE_TO_FEN_CHAR = {
-    W_PAWN: "P",
-    W_KNIGHT: "N",
-    W_BISHOP: "B",
-    W_ROOK: "R",
-    W_QUEEN: "Q",
-    W_KING: "K",
-    B_PAWN: "p",
-    B_KNIGHT: "n",
-    B_BISHOP: "b",
-    B_ROOK: "r",
-    B_QUEEN: "q",
-    B_KING: "k",
-}
-
-PROMOTION_SUFFIX_TO_PIECE = {
-    "q": (W_QUEEN, B_QUEEN),
-    "r": (W_ROOK, B_ROOK),
-    "b": (W_BISHOP, B_BISHOP),
-    "n": (W_KNIGHT, B_KNIGHT),
-}
-
 
 def square_to_index(square):
     file_index = ord(square[0].lower()) - ord("a")
@@ -141,14 +103,21 @@ def move_to_uci(move):
 
     source, target, flag = move
     move_text = index_to_square(source) + index_to_square(target)
-    if flag == FLAG_PROMOTION:
+    if flag == FLAG_PROMOTION_Q:
         move_text += "q"
+    elif flag == FLAG_PROMOTION_R:
+        move_text += "r"
+    elif flag == FLAG_PROMOTION_B:
+        move_text += "b"
+    elif flag == FLAG_PROMOTION_N:
+        move_text += "n"
+
     return move_text
 
 
 def find_legal_move(state, move_text):
     if len(move_text) < 4:
-        return None, None
+        return None
 
     source = square_to_index(move_text[:2])
     target = square_to_index(move_text[2:4])
@@ -159,30 +128,30 @@ def find_legal_move(state, move_text):
         if move[0] != source or move[1] != target:
             continue
 
-        promotion_piece = None
-        if move[2] == FLAG_PROMOTION:
+        if move[2] in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
             if promotion_suffix:
-                promotion_piece_pair = PROMOTION_SUFFIX_TO_PIECE.get(promotion_suffix[0])
-                if promotion_piece_pair is None:
-                    return None, None
-                promotion_piece = promotion_piece_pair[0 if state.turn_color == WHITE else 1]
-            else:
-                promotion_piece = W_QUEEN if state.turn_color == WHITE else B_QUEEN
+                expected_flag = PROMOTION_SUFFIX_TO_FLAG.get(promotion_suffix[0])
+                if expected_flag is None:
+                    return None
+                if move[2] != expected_flag:
+                    continue
+            elif move[2] != FLAG_PROMOTION_Q:
+                continue
 
-        return move, promotion_piece
+        elif promotion_suffix:
+            continue
 
-    return None, None
+        return move
+
+    return None
 
 
 def apply_uci_move(state, move_text):
-    move, promotion_piece = find_legal_move(state, move_text)
+    move = find_legal_move(state, move_text)
     if move is None:
         return False
-
-    if move[2] == FLAG_PROMOTION:
-        state.make_move(move, promotion_piece=promotion_piece)
-    else:
-        state.make_move(move)
+    
+    state.make_move(move)
     return True
 
 
