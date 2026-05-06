@@ -79,12 +79,12 @@ def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> floa
         tt_flag = tt_entry[2]
         tt_score = tt_entry[1]
         
-        if tt_flag == 0:
+        if tt_flag == TT_EXACT:
             return tt_score
-        elif tt_flag == 1:
+        elif tt_flag == TT_UPPER_BOUND:
             if tt_score <= alpha:
                 return alpha
-        elif tt_flag == 2:
+        elif tt_flag == TT_LOWER_BOUND:
             if tt_score >= beta:
                 return beta
                 
@@ -132,7 +132,7 @@ def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> floa
             
         if score >= beta:
             if score < 90000 and score > -90000:
-                tt[zobrist_hash] = (depth, beta, 2, move)
+                tt[zobrist_hash] = (depth, beta, TT_LOWER_BOUND, move)
             return beta
             
         if score > alpha:
@@ -149,7 +149,7 @@ def negamax(depth, state, alpha, beta, current_color, search_params, tt) -> floa
             return 0 # We are not in check, so it's a Stalemate (Draw)
         return best_score # We are in check, Checkmate!
             
-    flag = 1 if alpha <= alpha_orig else 0
+    flag = TT_UPPER_BOUND if alpha <= alpha_orig else TT_EXACT
     tt[zobrist_hash] = (depth, alpha, flag, best_move_found)
     
     return alpha

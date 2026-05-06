@@ -41,6 +41,11 @@ FLAG_PROMOTION = 4
 FLAG_DOUBLE_PAWN = 5
 FLAG_EN_PASSANT = 6
 
+# Transposition Table Flags
+TT_EXACT = 0
+TT_UPPER_BOUND = 1
+TT_LOWER_BOUND = 2
+
 NOT_A_FILE  = 0xFEFEFEFEFEFEFEFE  # A-file bits are 0, everywhere else is 1
 NOT_AB_FILE = 0xFCFCFCFCFCFCFCFC  # A and B files are 0
 NOT_H_FILE  = 0x7F7F7F7F7F7F7F7F  # H-file bits are 0

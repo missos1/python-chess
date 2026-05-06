@@ -12,7 +12,7 @@ class Bot:
         self.start_time = 0
         
         # TT stores {hash: (depth, score, flag, best_move)}
-        # flag: 0 = EXACT, 1 = ALPHA (upper bound), 2 = BETA (lower bound)
+        # flag: TT_EXACT, TT_UPPER_BOUND, or TT_LOWER_BOUND
         self.transposition_table = {}
 
     def get_best_move(self, state) -> tuple[int, int, int] | None:

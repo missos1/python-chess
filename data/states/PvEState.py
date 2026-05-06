@@ -155,7 +155,7 @@ class PvEState(State):
         return 15 if self.bot_thinking else 60
     
     def reset(self):
-        self.bot_thread. if self.bot_thread and self.bot_thread.is_alive() else None
+        self.bot_thread if self.bot_thread and self.bot_thread.is_alive() else None
         self.board = None
         self.player_color = None
         self.game_over = False
