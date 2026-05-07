@@ -14,6 +14,8 @@ class Bot:
         # TT stores {hash: (depth, score, flag, best_move)}
         # flag: TT_EXACT, TT_UPPER_BOUND, or TT_LOWER_BOUND
         self.transposition_table = {}
+        # killer moves [ply][0/1]
+        self.killer_moves = [[None, None] for _ in range(64)]
 
     def get_best_move(self, state) -> tuple[int, int, int] | None:
         self.nodes_searched = 0
@@ -51,7 +53,7 @@ class Bot:
                 for move in legal_moves:
                     state.make_move(move)
                     enemy_color = BLACK if self.color == WHITE else WHITE
-                    score = -negamax(current_depth - 1, state, -beta, -alpha, enemy_color, search_params, tt)
+                    score = -negamax(current_depth - 1, state, -beta, -alpha, enemy_color, search_params, tt, self.killer_moves, 1)
                     state.undo_move(move)
                     
                     if score > alpha:
