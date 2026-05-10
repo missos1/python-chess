@@ -1,4 +1,6 @@
 _pycache_/
 *.py[cod]
 .vs/
-sunfish.py
+GUI/
+dist/
+build/

@@ -36,6 +36,7 @@ class GameState:
         
         piece_moved = self.piece_values[source]
         captured_piece = self.piece_values[target]
+        promotion_piece = -1
         
         # 1. SAVE THE HISTORY
         # Push castling rights and the victim so we can restore them later
@@ -75,8 +76,22 @@ class GameState:
                 self.en_passant_target = target + 8
             self.zobrist_hash ^= ZOBRIST_EN_PASSANT[self.en_passant_target % 8]
 
-        elif flag == FLAG_QUIET:
-            pass
+        elif flag in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
+            if flag == FLAG_PROMOTION_Q:
+                promotion_piece = W_QUEEN if piece_moved == W_PAWN else B_QUEEN
+            elif flag == FLAG_PROMOTION_R:
+                promotion_piece = W_ROOK if piece_moved == W_PAWN else B_ROOK
+            elif flag == FLAG_PROMOTION_B:
+                promotion_piece = W_BISHOP if piece_moved == W_PAWN else B_BISHOP
+            elif flag == FLAG_PROMOTION_N:
+                promotion_piece = W_KNIGHT if piece_moved == W_PAWN else B_KNIGHT
+                
+            self.bitboards[piece_moved] ^= (1 << target) 
+            self.zobrist_hash ^= ZOBRIST_PIECES[piece_moved][target] # Remove Pawn from hatch
+
+            self.bitboards[promotion_piece] ^= (1 << target)
+            self.piece_values[target] = promotion_piece
+            self.zobrist_hash ^= ZOBRIST_PIECES[promotion_piece][target] # Add promoted piece
                 
         elif flag == FLAG_EN_PASSANT:
             victim_sq = target - 8 if piece_moved == W_PAWN else target + 8
@@ -116,24 +131,7 @@ class GameState:
                 self.zobrist_hash ^= ZOBRIST_PIECES[B_ROOK][56]
                 self.zobrist_hash ^= ZOBRIST_PIECES[B_ROOK][59]
 
-        else: # put flag promotions here last because they take more time to check conditions for
-            if flag == FLAG_PROMOTION_Q:
-                promotion_piece = W_QUEEN if piece_moved == W_PAWN else B_QUEEN
-            elif flag == FLAG_PROMOTION_R:
-                promotion_piece = W_ROOK if piece_moved == W_PAWN else B_ROOK
-            elif flag == FLAG_PROMOTION_B:
-                promotion_piece = W_BISHOP if piece_moved == W_PAWN else B_BISHOP
-            elif flag == FLAG_PROMOTION_N:
-                promotion_piece = W_KNIGHT if piece_moved == W_PAWN else B_KNIGHT
-            self.bitboards[piece_moved] ^= (1 << target) 
-            self.zobrist_hash ^= ZOBRIST_PIECES[piece_moved][target] # Remove Pawn from hatch
-            
-            if promotion_piece is None:
-                promotion_piece = W_QUEEN if piece_moved == W_PAWN else B_QUEEN
-
-            self.bitboards[promotion_piece] ^= (1 << target)
-            self.piece_values[target] = promotion_piece
-            self.zobrist_hash ^= ZOBRIST_PIECES[promotion_piece][target] # Add promoted piece
+        
         # King moves: lose both rights
         if piece_moved == W_KING:
             self.castling_rights &= ~(WK_RIGHT | WQ_RIGHT)
@@ -187,8 +185,17 @@ class GameState:
         piece_moved = self.piece_values[target]
         
         # 2. REVERT SPECIAL FLAGS (Before standard reversion)
-        if flag == FLAG_QUIET:
-            pass
+        if flag in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
+            self.bitboards[piece_moved] ^= (1 << target) 
+            
+            # Re-assign piece_moved to be a Pawn
+            if target >= 56: # White
+                piece_moved = W_PAWN
+            else:            # Black
+                piece_moved = B_PAWN
+                
+            # Spawn the Pawn back on the target square temporarily
+            self.bitboards[piece_moved] ^= (1 << target)
             
         elif flag == FLAG_CASTLE_KS:
             if target == 6: # White
@@ -217,18 +224,6 @@ class GameState:
             self.piece_values[victim_sq] = victim_piece
             self.bitboards[victim_piece] ^= (1 << victim_sq)
             captured_piece = EMPTY # Prevent the lower capture logic from restoring a piece at 'target'
-
-        else: 
-            self.bitboards[piece_moved] ^= (1 << target) 
-            
-            # Re-assign piece_moved to be a Pawn
-            if target >= 56: # White
-                piece_moved = W_PAWN
-            else:            # Black
-                piece_moved = B_PAWN
-                
-            # Spawn the Pawn back on the target square temporarily
-            self.bitboards[piece_moved] ^= (1 << target)
 
         self.bitboards[piece_moved] ^= (1 << target) | (1 << source)
         

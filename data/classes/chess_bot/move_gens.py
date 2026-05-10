@@ -65,6 +65,8 @@ def get_pawns_moves(bitboards, color, en_passant_target=None):
 			pawn = lsb.bit_length() - 1
 			pawns &= pawns - 1
 			single_push = pawn - 8
+			# if single push is negative somehow
+			# there's a bug in make_move or undo_move
 			
 			if (1 << single_push) & empty:
 				if single_push <= 7:
