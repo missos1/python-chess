@@ -5,9 +5,10 @@ from .evaluate import *
 from .search import negamax, TimeOutException
 
 class Bot:
-    def __init__(self, color=WHITE, time_limit=6):
+    def __init__(self, color=WHITE, time_limit=6, verbose=True):
         self.color = color
         self.time_limit = time_limit
+        self.verbose = verbose
         self.nodes_searched = 0
         self.start_time = 0
         
@@ -17,10 +18,11 @@ class Bot:
         # killer moves [ply][0/1]
         self.killer_moves = [[None, None] for _ in range(64)]
 
-    def get_best_move(self, state) -> tuple[int, int, int] | None:
+    def get_best_move(self, state, max_depth=1000) -> tuple[int, int, int] | None:
         self.nodes_searched = 0
         self.start_time = time.time()
-        print(f"Transposition table size at start of search: {len(self.transposition_table)} entries.")
+        if self.verbose:
+            print(f"Transposition table size at start of search: {len(self.transposition_table)} entries.")
         if len(self.transposition_table) > 4000000:
             self.transposition_table.clear()
         
@@ -39,7 +41,7 @@ class Bot:
         tt = self.transposition_table
         
         # Iterative Deepening loop
-        for current_depth in range(1, 1001):
+        for current_depth in range(1, max_depth + 1):
             try:
                 alpha = -INFINITY
                 beta = INFINITY
@@ -71,7 +73,8 @@ class Bot:
                 #     break
                     
             except TimeOutException:
-                print(f"--> Aborting search! Max time limit ({self.time_limit}s) reached during depth {current_depth}.")
+                if self.verbose:
+                    print(f"--> Aborting search! Max time limit ({self.time_limit}s) reached during depth {current_depth}.")
                 break
                 
         self.nodes_searched = search_params[0]
@@ -79,13 +82,12 @@ class Bot:
         if best_move is not None:
             source = best_move[0]
             target = best_move[1]
-        
-        print(f"Bot searched {self.nodes_searched} nodes.")
-        print(f"Null prunes attempted: {search_params[3]}")
-        print(f"depth reached: {current_depth}")
-        print(f"Best move: {index_to_algebraic(source) if best_move else 'None'} "
-              f"to {index_to_algebraic(target) if best_move else 'None'}."
-        )
+
+        if self.verbose:
+            print(f"Bot searched {self.nodes_searched} nodes.")
+            print(f"Best move: {index_to_algebraic(source) if best_move else 'None'} "
+                  f"to {index_to_algebraic(target) if best_move else 'None'}."
+            )
         
         return best_move
     
