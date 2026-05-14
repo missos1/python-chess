@@ -15,6 +15,8 @@ class Bot:
         # TT stores {hash: (depth, score, flag, best_move)}
         # flag: TT_EXACT, TT_UPPER_BOUND, or TT_LOWER_BOUND
         self.transposition_table = {}
+        # killer moves [ply][0/1]
+        self.killer_moves = [[None, None] for _ in range(64)]
 
     def get_best_move(self, state, max_depth=1000) -> tuple[int, int, int] | None:
         self.nodes_searched = 0
@@ -32,15 +34,17 @@ class Bot:
             
         legal_moves.sort(key=lambda m: score_move(m, state), reverse=True)
         
+        null_prune_times = 0
+        null_prune_scores = []
         # search_params = [nodes_searched, start_time, time_limit]
-        search_params = [0, self.start_time, self.time_limit]
+        search_params = [0, self.start_time, self.time_limit, null_prune_times]
         tt = self.transposition_table
         
         # Iterative Deepening loop
         for current_depth in range(1, max_depth + 1):
             try:
-                alpha = -float('inf')
-                beta = float('inf')
+                alpha = -INFINITY
+                beta = INFINITY
                 depth_best_move = None
                 
                 # Bring the best move from the previous depth to the front to maximize Alpha-Beta snips
@@ -51,7 +55,7 @@ class Bot:
                 for move in legal_moves:
                     state.make_move(move)
                     enemy_color = BLACK if self.color == WHITE else WHITE
-                    score = -negamax(current_depth - 1, state, -beta, -alpha, enemy_color, search_params, tt)
+                    score = -negamax(current_depth - 1, state, -beta, -alpha, enemy_color, search_params, tt, self.killer_moves, 1)
                     state.undo_move(move)
                     
                     if score > alpha:

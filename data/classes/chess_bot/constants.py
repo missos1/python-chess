@@ -2,6 +2,11 @@
 WHITE = 'white'
 BLACK = 'black'
 
+# don't use float("inf") because for null move pruning 
+# we need to add 1 to the score, and float("inf") + 1 
+# is still float("inf"), which breaks the logic.
+INFINITY = 1000000
+
 W_PAWN   = 1
 W_KNIGHT = 2
 W_BISHOP = 3

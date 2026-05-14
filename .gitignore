@@ -1,3 +1,6 @@
 _pycache_/
 *.py[cod]
 .vs/
+GUI/
+dist/
+build/
