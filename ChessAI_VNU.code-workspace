@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "ChessAI_VNU",
+			"path": "."
+		},
+		{
+			"name": "stockfish",
+			"path": "../../../Downloads/stockfish-windows-x86-64-avx2/stockfish"
+		}
+	],
+	"settings": {}
+}
