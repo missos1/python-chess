@@ -55,7 +55,7 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
             
     return alpha
 
-def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt, killer_moves, ply) -> float:
+def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt, killer_moves, history_table, ply) -> float:
     """ Search the game tree to a certain depth using negamax with alpha-beta pruning, 
     along with quiescence search at the leaf nodes, and a transposition table to store
     previously evaluated positions."""
@@ -116,6 +116,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                     search_params, 
                     tt,
                     killer_moves,
+                    history_table,
                     ply + 1
             )
             if null_move_score >= beta:
@@ -147,7 +148,19 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
         if move == killer_moves[ply][1]:
             return 8_000_000
 
-        return score_move(move, state)
+        source, target, flag = move
+        piece = state.piece_values[source]
+
+        score = score_move(move, state)
+
+        # history heuristic for quiet moves
+        if flag in (FLAG_QUIET,
+            FLAG_DOUBLE_PAWN,
+            FLAG_CASTLE_KS,
+            FLAG_CASTLE_QS):
+            score += history_table[piece][target]
+
+        return score
 
     moves.sort(key=move_order_score, reverse=True)
     
@@ -175,6 +188,23 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                     continue
 
         make_move(move)
+        our_king_board = (
+            state.bitboards[W_KING]
+            if current_color == WHITE
+            else state.bitboards[B_KING]
+        )
+
+        our_king_sq = (
+            our_king_board & -our_king_board
+        ).bit_length() - 1
+
+        if is_square_attacked(
+            our_king_sq,
+            enemy_color,
+            state.bitboards
+        ):
+            undo_move(move)
+            continue
         try:
             reduction = 0
 
@@ -210,7 +240,9 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                 ).bit_length() - 1
 
                 if not is_square_attacked(enemy_king_sq_after, current_color, state.bitboards):
-                    reduction = 1
+                    history_score = history_table[state.piece_values[move[0]]][move[1]]
+
+                    reduction = 2 if depth >= 5 and history_score < 50 else 1
 
             # reduced search
             if reduction:
@@ -223,6 +255,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                     search_params,
                     tt,
                     killer_moves,
+                    history_table,
                     ply + 1
                 )
 
@@ -237,6 +270,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                         search_params,
                         tt,
                         killer_moves,
+                        history_table,
                         ply + 1
                     )
             else:
@@ -249,6 +283,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                     search_params, 
                     tt,
                     killer_moves,
+                    history_table,
                     ply + 1
                 )
         finally:
@@ -261,6 +296,17 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
             best_move_found = move
             
         if score >= beta:
+            if flag in (FLAG_QUIET,
+                FLAG_DOUBLE_PAWN,
+                FLAG_CASTLE_KS,
+                FLAG_CASTLE_QS):
+                piece = state.piece_values[move[0]]
+
+                history_table[piece][move[1]] += depth * depth
+
+                if history_table[piece][move[1]] > MAX_HISTORY:
+                    history_table[piece][move[1]] = MAX_HISTORY
+                
             # store killer move
             if flag not in (
                 FLAG_CAPTURE,

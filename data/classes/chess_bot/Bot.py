@@ -16,6 +16,9 @@ class Bot:
         self.transposition_table = {}
         # killer moves [ply][0/1]
         self.killer_moves = [[None, None] for _ in range(64)]
+        # history heuristic table
+        # [piece][target_square]
+        self.history_table = [[0 for _ in range(64)] for _ in range(13)]
 
     def get_best_move(self, state) -> tuple[int, int, int] | None:
         self.nodes_searched = 0
@@ -37,6 +40,10 @@ class Bot:
         # search_params = [nodes_searched, start_time, time_limit]
         search_params = [0, self.start_time, self.time_limit, null_prune_times]
         tt = self.transposition_table
+
+        for piece in range(13):
+            for sq in range(64):
+                self.history_table[piece][sq] //= 2 # decay history scores over time to prevent old, irrelevant moves from dominating move ordering forever
         
         # Iterative Deepening loop
         for current_depth in range(1, 1001):
@@ -53,7 +60,7 @@ class Bot:
                 for move in legal_moves:
                     state.make_move(move)
                     enemy_color = BLACK if self.color == WHITE else WHITE
-                    score = -negamax(current_depth - 1, state, -beta, -alpha, enemy_color, search_params, tt, self.killer_moves, 1)
+                    score = -negamax(current_depth - 1, state, -beta, -alpha, enemy_color, search_params, tt, self.killer_moves, self.history_table, 1)
                     state.undo_move(move)
                     
                     if score > alpha:
