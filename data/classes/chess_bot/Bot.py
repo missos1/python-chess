@@ -6,9 +6,8 @@ from .evaluate import *
 from .search import negamax, TimeOutException
 
 class Bot:
-    def __init__(self, color=WHITE, time_limit=6, verbose=False):
+    def __init__(self, color=WHITE, verbose=False):
         self.color = color
-        self.time_limit = time_limit
         self.verbose = verbose
         self.nodes_searched = 0
         self.start_time = 0
@@ -23,7 +22,7 @@ class Bot:
         if self.verbose:
             print(*parts, file=sys.stderr)
 
-    def get_best_move(self, state, max_depth=None, stop_event=None) -> tuple[int, int, int] | None:
+    def get_best_move(self, state, max_depth=None, stop_event=None, time_limit=2) -> tuple[int, int, int] | None:
         self.nodes_searched = 0
         self.start_time = time.time()
         self._log(f"Transposition table size at start of search: {len(self.transposition_table)} entries.")
@@ -41,7 +40,7 @@ class Bot:
         null_prune_times = 0
         null_prune_scores = []
         # search_params = [nodes_searched, start_time, time_limit]
-        search_params = [0, self.start_time, self.time_limit, null_prune_times]
+        search_params = [0, self.start_time, time_limit, null_prune_times]
         tt = self.transposition_table
         current_depth = 0
         
@@ -78,15 +77,16 @@ class Bot:
                 if depth_best_move:
                     best_move = depth_best_move
                     
-                # This isn't used because search uses pseudo-legal move generation, 
-                # but it can be helpful for debugging to see if the search is correctly identifying checkmates
-                # If we've found a guaranteed, forced checkmate against the opponent, stop searching immediately!
-                # if alpha > 90000:
-                #     print(f"--> Found a forced Checkmate! Ending search early at depth {current_depth}.")
-                #     break
+                """ This isn't used because search uses pseudo-legal move generation, but it can be helpful for 
+                    debugging to see if the search is correctly identifying checkmates.
+                    If we've found a guaranteed, forced checkmate against the opponent, stop searching immediately!"""
+                    # if alpha > 90000:
+                    # print(f"--> Found a forced Checkmate! Ending search early at depth {current_depth}.")
+                    # break
+                
                     
             except TimeOutException:
-                self._log(f"--> Aborting search! Max time limit ({self.time_limit}s) reached during depth {current_depth}.")
+                self._log(f"--> Aborting search! Max time limit ({time_limit}s) reached during depth {current_depth}.")
                 break
                 
         self.nodes_searched = search_params[0]
@@ -95,7 +95,8 @@ class Bot:
             if best_move is not None:
                 source = best_move[0]
                 target = best_move[1]
-
+                
+            self._log(f"======BOT REPORTS======")
             self._log(f"Bot searched {self.nodes_searched} nodes.")
             self._log(f"Null prunes attempted: {search_params[3]}")
             self._log(f"depth reached: {current_depth}")

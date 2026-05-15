@@ -158,7 +158,7 @@ def apply_uci_move(state, move_text):
 class UCIEngine:
     def __init__(self):
         self.state = build_start_state()
-        self.bot = Bot(color=self.state.turn_color, verbose=False)
+        self.bot = Bot(color=self.state.turn_color, verbose=True)
         self._search_thread = None
         self._search_stop_event = None
         self._search_lock = threading.Lock()
@@ -246,14 +246,14 @@ class UCIEngine:
 
     def _search_worker(self, stop_event, max_depth=None, time_limit=None):
         try:
-            if time_limit is not None:
-                self.bot.time_limit = time_limit
             self.bot.color = self.state.turn_color
-            best_move = self.bot.get_best_move(
-                self.state,
-                max_depth=max_depth,
-                stop_event=stop_event,
-            )
+            if time_limit is not None:
+                best_move = self.bot.get_best_move(
+                    self.state,
+                    max_depth=max_depth,
+                    stop_event=stop_event,
+                    time_limit=time_limit,
+                )
             best_move_text = move_to_uci(best_move)
         except Exception as exc:
             print(f"info string search failed: {exc}", file=sys.stderr)
