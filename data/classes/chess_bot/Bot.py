@@ -43,7 +43,7 @@ class Bot:
 
         for piece in range(13):
             for sq in range(64):
-                self.history_table[piece][sq] //= 2 # decay history scores over time to prevent old, irrelevant moves from dominating move ordering forever
+                self.history_table[piece][sq] = int(self.history_table[piece][sq] * 0.75) # Decay history scores by 25% each move to prevent old, irrelevant history from dominating move ordering forever.
         
         # Iterative Deepening loop
         for current_depth in range(1, 1001):

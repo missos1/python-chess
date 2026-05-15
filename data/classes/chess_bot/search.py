@@ -1,6 +1,6 @@
 import time
 from .constants import *
-from .evaluate import evaluate, score_move
+from .evaluate import *
 from .move_filter import is_square_attacked
 from .move_gens import generate_all_moves
 from .GameState import GameState
@@ -28,6 +28,10 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
         # alpha-beta pruning on the quiet evaluation of the position before we start looking at captures
     if stand_pat >= beta:
             return beta
+    # Delta Pruning: If you capture the Queen but still can't keep the Alpha, then stop.
+    DELTA_MARGIN = 929 # Queen value
+    if stand_pat < alpha - DELTA_MARGIN:
+        return alpha
     if alpha < stand_pat:
             alpha = stand_pat
         
@@ -41,7 +45,25 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
     undo_move = state.undo_move
     
     for move in moves_to_search:
+        source, target, flag = move
+        attacker = state.piece_values[source]
+        victim = state.piece_values[target] if flag != FLAG_EN_PASSANT else (W_PAWN if current_color == BLACK else B_PAWN)
         
+        # Delta Pruning: if capturing this piece  + a margin still doesn't help us surpass alpha
+        # (Except in the case of promotions, because that can completely change the situation.)
+        if flag != FLAG_PROMOTION:
+            if stand_pat + PIECE_POINT_VALUES[victim] + 200 < alpha:
+                continue
+
+        # Simple SEE: If the captured piece is protected by the opponent
+        # and our attacking piece is worth more than the captured piece (e.g., Rook captures Pawn).
+        if is_square_attacked(target, next_color, state.bitboards):
+            # If the value of our piece (attacker) > the value of the piece it's capturing (victim), usually a bad trade
+            # We allow a small margin (e.g., 50 points) or only apply if the difference is large
+            if PIECE_POINT_VALUES[attacker] > PIECE_POINT_VALUES[victim] + 50:
+                # Only skip if this is not a forced capture or promotion
+                if flag != FLAG_PROMOTION:
+                    continue
         make_move(move)
         try:
             score = -quiescence_search(state, -beta, -alpha, next_color, search_params)
@@ -83,20 +105,21 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
     tt_move = None
     
     if tt_entry is not None and tt_entry[0] >= depth:
-        if len(tt_entry) == 4:
-            tt_move = tt_entry[3]
-            # print(f"tuple with length 4 confirmed")
-        tt_flag = tt_entry[2]
-        tt_score = tt_entry[1]
-        
+        tt_depth, tt_score, tt_flag, tt_move = tt_entry
+        actual_score = score_from_tt(tt_score, ply)
+
         if tt_flag == TT_EXACT:
-            return tt_score
+            return actual_score
         elif tt_flag == TT_UPPER_BOUND:
             if tt_score <= alpha:
                 return alpha
         elif tt_flag == TT_LOWER_BOUND:
             if tt_score >= beta:
                 return beta
+            
+    king_board = state.bitboards[W_KING] if current_color == WHITE else state.bitboards[B_KING]
+    if king_board == 0:
+        return -MATE_SCORE + ply # prioritize faster mates by returning a score that gets worse the deeper it is in the tree, but is still recognized as a mate score by the search.
                 
     # Null Move Pruning: If we are not in a quiet position 
     # (i.e. there is significant material on the board), we can try skipping our move and see if the opponent has a strong response. If they do, then we know we need to search this position more deeply. If they don't, we can safely assume this position is good for us and cut off the search.
@@ -126,7 +149,11 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
             state.undo_null_move()  # Ensure we always undo the null move even if we time out
             
     if depth <= 0:
-        return quiescence_search(state, alpha, beta, current_color, search_params)
+        # CHECK EXTENSION
+        if is_in_check:
+            depth = 1
+        else:
+            return quiescence_search(state, alpha, beta, current_color, search_params)
         
     moves = generate_all_moves(
         state.bitboards, 
@@ -137,32 +164,17 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
     
     # moves = state.get_strictly_legal_moves(current_color)
     
-    def move_order_score(move):
-
-        if move == tt_move:
-            return 10_000_000
-
-        if move == killer_moves[ply][0]:
-            return 9_000_000
-
-        if move == killer_moves[ply][1]:
-            return 8_000_000
-
-        source, target, flag = move
-        piece = state.piece_values[source]
-
-        score = score_move(move, state)
-
-        # history heuristic for quiet moves
-        if flag in (FLAG_QUIET,
-            FLAG_DOUBLE_PAWN,
-            FLAG_CASTLE_KS,
-            FLAG_CASTLE_QS):
-            score += history_table[piece][target]
-
-        return score
-
-    moves.sort(key=move_order_score, reverse=True)
+    moves.sort(
+    key=lambda move: move_order_score(
+        move,
+        state,
+        tt_move,
+        killer_moves,
+        history_table,
+        ply
+    ),
+    reverse=True
+)
     
     make_move = state.make_move
     undo_move = state.undo_move
@@ -170,7 +182,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
     best_score = -float('inf')
     best_move_found = None
     move_index = 0
-    
+    quiet_moves_tried = []
     for move in moves:
         flag = move[2]
         
@@ -205,6 +217,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
         ):
             undo_move(move)
             continue
+
         try:
             reduction = 0
 
@@ -213,7 +226,9 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                 FLAG_PROMOTION,
                 FLAG_EN_PASSANT
             )
-
+            if is_quiet:
+                quiet_moves_tried.append(move)
+            
             is_tt_move = (move == tt_move)
             is_killer = (
                 move == killer_moves[ply][0] or
@@ -242,7 +257,9 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                 if not is_square_attacked(enemy_king_sq_after, current_color, state.bitboards):
                     history_score = history_table[state.piece_values[move[0]]][move[1]]
 
-                    reduction = 2 if depth >= 5 and history_score < 50 else 1
+                    reduction = min(2, (depth // 3) + (move_index // 8))
+                    if history_score > 200:  # if the history score is high, we reduce less aggressively
+                        reduction = max(0, reduction - 1)
 
             # reduced search
             if reduction:
@@ -301,11 +318,17 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                 FLAG_CASTLE_KS,
                 FLAG_CASTLE_QS):
                 piece = state.piece_values[move[0]]
+                bonus = depth * depth
+                for prev_move in quiet_moves_tried[:-1]:
+                    prev_piece = state.piece_values[prev_move[0]]
 
-                history_table[piece][move[1]] += depth * depth
+                    history_table[prev_piece][prev_move[1]] = update_history_score(
+                        history_table[prev_piece][prev_move[1]],
+                        -bonus
+                    )
+                new_score = history_table[piece][move[1]] + bonus
+                history_table[piece][move[1]] = min(MAX_HISTORY, new_score)
 
-                if history_table[piece][move[1]] > MAX_HISTORY:
-                    history_table[piece][move[1]] = MAX_HISTORY
                 
             # store killer move
             if flag not in (
@@ -317,7 +340,8 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                     killer_moves[ply][1] = killer_moves[ply][0]
                     killer_moves[ply][0] = move
             if score < 90000 and score > -90000:
-                tt[zobrist_hash] = (depth, beta, TT_LOWER_BOUND, move)
+                tt_value = score_to_tt(beta, ply) # Store the original beta score as the TT value for upper bounds, after converting it to the standardized format for storage in the TT.
+                tt[zobrist_hash] = (depth, tt_value, TT_LOWER_BOUND, move)
             return beta
             
         if score > alpha:
@@ -328,12 +352,13 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
     # If we have no legal moves and our king is not attacked, it's stalemate.
     # If all pseudo-legal moves resulted in our King getting captured, 
     # the best_score will be heavily negative.
-    if best_score <= -90000:
+    if best_score <= -MATE_THRESHOLD:
         if not is_in_check:
             return 0 # We are not in check, so it's a Stalemate (Draw)
         return best_score # We are in check, Checkmate!
             
     flag = TT_UPPER_BOUND if alpha <= alpha_orig else TT_EXACT
-    tt[zobrist_hash] = (depth, alpha, flag, best_move_found)
+    tt_value = score_to_tt(alpha, ply)
+    tt[zobrist_hash] = (depth, tt_value, flag, best_move_found)
     
     return alpha

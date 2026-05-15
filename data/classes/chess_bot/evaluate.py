@@ -68,3 +68,55 @@ def score_move(move, state):
             score = pst[read_target]
             
     return score
+
+def update_history_score(current, bonus):
+    return current + bonus - (current * abs(bonus) // MAX_HISTORY)
+
+def move_order_score(
+    move,
+    state,
+    tt_move,
+    killer_moves,
+    history_table,
+    ply
+):
+    if move == tt_move:
+        return 10_000_000
+
+    if move == killer_moves[ply][0]:
+        return 9_000_000
+
+    if move == killer_moves[ply][1]:
+        return 8_000_000
+
+    source, target, flag = move
+
+    score = score_move(move, state)
+
+    # history heuristic for quiet moves
+    if flag in (
+        FLAG_QUIET,
+        FLAG_DOUBLE_PAWN,
+        FLAG_CASTLE_KS,
+        FLAG_CASTLE_QS
+    ):
+        piece = state.piece_values[source]
+        score += history_table[piece][target]
+
+    return score
+
+def score_to_tt(score, ply):
+    """standardize score for storage in TT, converting mate scores to a consistent format"""
+    if score > MATE_THRESHOLD:
+        return score + ply
+    if score < -MATE_THRESHOLD:
+        return score - ply
+    return score
+
+def score_from_tt(score, ply):
+    """decodes a score from the TT, converting it back to the original format for comparison in the search"""
+    if score > MATE_THRESHOLD:
+        return score - ply
+    if score < -MATE_THRESHOLD:
+        return score + ply
+    return score
