@@ -5,6 +5,7 @@ from data.classes.StateManager import StateManager
 from data.states.MenuState import MenuState
 from data.states.PvPState import PvPState
 from data.states.PvEState import PvEState
+from data.states.EvEState import EvEState
 
 if __name__ == "__main__":
 	pygame.init()
@@ -17,7 +18,8 @@ if __name__ == "__main__":
 	states = {
 		'menu': MenuState(manager),
 		'pvp': PvPState(manager),
-		'pve': PvEState(manager)
+		'pve': PvEState(manager),
+		'eve': EvEState(manager)
 	}
 	manager.setup(states, 'menu')
 

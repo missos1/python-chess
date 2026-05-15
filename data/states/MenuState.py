@@ -7,6 +7,7 @@ class MenuState(State):
         # Centered horizontally for a 600x600 window
         self.btn_pvp = Button(200, 200, 200, 60, "PvP")
         self.btn_pve = Button(200, 300, 200, 60, "PvE")
+        self.btn_eve = Button(200, 400, 200, 60, "EvE")
 
     def handle_events(self, events):
         for event in events:
@@ -14,8 +15,11 @@ class MenuState(State):
                 self.manager.change_state('pvp')
             elif self.btn_pve.is_clicked(event):
                 self.manager.change_state('pve')
+            elif self.btn_eve.is_clicked(event):
+                self.manager.change_state('eve')
 
     def draw(self, surface):
         surface.fill((230, 230, 230)) # Light gray background
         self.btn_pvp.draw(surface)
         self.btn_pve.draw(surface)
+        self.btn_eve.draw(surface)

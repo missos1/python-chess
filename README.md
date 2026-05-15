@@ -18,7 +18,7 @@ Replace the CuteChess and Python paths with your own if needed.
 & "E:\\Workspace\\Project\\ChessAI_VNU\\Cute Chess\\cutechess-cli.exe" `
 	-engine name="NewBot" cmd="E:\\Python\\Python314\\python.exe" arg="E:\\Workspace\\Project\\ChessAI_VNU\\uci.py" arg="--package" arg="data.classes.chess_bot" dir="E:\\Workspace\\Project\\ChessAI_VNU" `
 	-engine name="OldBot" cmd="E:\\Python\\Python314\\python.exe" arg="E:\\Workspace\\Project\\ChessAI_VNU\\uci.py" arg="--package" arg="data.classes.chess_bot_v1" dir="E:\\Workspace\\Project\\ChessAI_VNU" `
-	-each proto=uci tc=1+0.1 -games 10 -concurrency 2
+	-each proto=uci tc=5+0.1 -games 10 -concurrency 2
 ```
 
 ### Command with random opening from output.txt
@@ -47,8 +47,9 @@ Then run CuteChess using a random opening from that file:
 & "E:\\Workspace\\Project\\ChessAI_VNU\\Cute Chess\\cutechess-cli.exe" `
 	-engine name="NewBot" cmd="E:\\Python\\Python314\\python.exe" arg="E:\\Workspace\\Project\\ChessAI_VNU\\uci.py" arg="--package" arg="data.classes.chess_bot" dir="E:\\Workspace\\Project\\ChessAI_VNU" `
 	-engine name="OldBot" cmd="E:\\Python\\Python314\\python.exe" arg="E:\\Workspace\\Project\\ChessAI_VNU\\uci.py" arg="--package" arg="data.classes.chess_bot_v1" dir="E:\\Workspace\\Project\\ChessAI_VNU" `
-	-each proto=uci tc=1+0.1 -openings file="E:\\Workspace\\Project\\ChessAI_VNU\\openings_fen.txt" format=epd order=random -games 10 -concurrency 2
+	-each proto=uci tc=5+0.1 -openings file="E:\\Workspace\\Project\\ChessAI_VNU\\openings_fen.txt" format=epd order=random -games 10 -concurrency 2
 ```
+
 
 ### What the result means
 - The match summary prints NewBot vs OldBot with wins, losses, and draws.

@@ -1,9 +1,24 @@
 from .constants import *
 from .move_gens import get_set_bits
 
+def get_game_phase(state):
+    material = 0
+    for piece_id in PHASE_MATERIAL_PIECES:
+        count = state.bitboards[piece_id].bit_count()
+        if count:
+            material += count * PIECE_POINT_VALUES[piece_id]
+
+    if material >= PHASE_OPENING_MIN_MATERIAL:
+        return PHASE_OPENING
+    if material <= PHASE_ENDGAME_MAX_MATERIAL:
+        return PHASE_ENDGAME
+    return PHASE_MIDDLEGAME
+
 def evaluate(state, current_turn_color):
     white_score = 0
     black_score = 0
+    phase = get_game_phase(state)
+    pst_lookup = PST_LOOKUP_BY_PHASE[phase]
     
     # Loop through the Hybrid Array exactly once
     for piece_id in range(W_PAWN, B_KING + 1):
@@ -15,7 +30,7 @@ def evaluate(state, current_turn_color):
         # Determine color using the integer constants instead of list lookups for extra speed
         is_white = piece_id <= W_KING
         base_value = PIECE_POINT_VALUES[piece_id]
-        pst = PST_LOOKUP[piece_id]
+        pst = pst_lookup[piece_id]
 
         # Get PST bonus (Mirror the square if Black!)
         while piece_bitboard:
@@ -44,7 +59,7 @@ def evaluate(state, current_turn_color):
     # Negamax perspective shift!
     return evaluation if current_turn_color == WHITE else -evaluation
 
-def score_move(move, state):
+def score_move(move, state, phase=None):
     source, target, flag = move
     piece_moving = state.piece_values[source]
     score = 0
@@ -59,7 +74,10 @@ def score_move(move, state):
     # 2. SCORE QUIET MOVES (Using Heat Maps)
     else:
         # If it's a quiet move, sort it by how "good" the destination square is!
-        pst = PST_LOOKUP[piece_moving]
+        if phase is None:
+            phase = get_game_phase(state)
+        pst_lookup = PST_LOOKUP_BY_PHASE[phase]
+        pst = pst_lookup[piece_moving]
         if pst:
             # If Black is moving, we flip the board vertically using bitwise XOR 56
             is_black = (piece_moving in [B_PAWN, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING])

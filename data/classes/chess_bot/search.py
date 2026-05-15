@@ -1,6 +1,6 @@
 import time
 from .constants import *
-from .evaluate import evaluate, score_move
+from .evaluate import evaluate, score_move, get_game_phase
 from .move_filter import is_square_attacked
 from .move_gens import generate_all_moves
 from .GameState import GameState
@@ -34,7 +34,8 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
     raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
     moves_to_search = [move for move in raw_moves if move[2] in (FLAG_CAPTURE, FLAG_PROMOTION, FLAG_EN_PASSANT)]
     
-    moves_to_search.sort(key=lambda m: score_move(m, state), reverse=True)
+    phase = get_game_phase(state)
+    moves_to_search.sort(key=lambda m: score_move(m, state, phase), reverse=True)
     
     next_color = BLACK if current_color == WHITE else WHITE
     make_move = state.make_move
@@ -136,6 +137,8 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
     
     # moves = state.get_strictly_legal_moves(current_color)
     
+    phase = get_game_phase(state)
+
     def move_order_score(move):
 
         if move == tt_move:
@@ -147,7 +150,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
         if move == killer_moves[ply][1]:
             return 8_000_000
 
-        return score_move(move, state)
+        return score_move(move, state, phase)
 
     moves.sort(key=move_order_score, reverse=True)
     

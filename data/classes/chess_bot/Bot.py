@@ -32,7 +32,8 @@ class Bot:
         if not legal_moves:
             return None
             
-        legal_moves.sort(key=lambda m: score_move(m, state), reverse=True)
+        phase = get_game_phase(state)
+        legal_moves.sort(key=lambda m: score_move(m, state, phase), reverse=True)
         
         null_prune_times = 0
         null_prune_scores = []
