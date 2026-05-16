@@ -1,6 +1,7 @@
 import chess
 import chess.engine
 import chess.svg
+import chess.polyglot
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
@@ -86,7 +87,6 @@ def parse_and_record_result(bot_stats, current_elo, is_bot_white, board_result):
         bot_stats[current_elo][0] += 1
     else:
         bot_stats[current_elo][2] += 1
-
 
 def configure_stockfish(stockfish, elo):
     stockfish.configure({

@@ -54,8 +54,7 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
         
         # Delta Pruning: if capturing this piece  + a margin still doesn't help us surpass alpha
         # (Except in the case of promotions, because that can completely change the situation.)
-        if flag != FLAG_PROMOTION:
-            if stand_pat + PIECE_POINT_VALUES[victim] + 200 < alpha:
+        if flag not in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1) and stand_pat + PIECE_POINT_VALUES[victim] + 200 < alpha:
                 continue
 
         # Simple SEE: If the captured piece is protected by the opponent
@@ -65,7 +64,7 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
             # We allow a small margin (e.g., 50 points) or only apply if the difference is large
             if PIECE_POINT_VALUES[attacker] > PIECE_POINT_VALUES[victim] + 50:
                 # Only skip if this is not a forced capture or promotion
-                if flag != FLAG_PROMOTION:
+                if flag not in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
                     continue
         make_move(move)
         try:
@@ -228,9 +227,8 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
 
             is_quiet = flag not in (
                 FLAG_CAPTURE,
-                FLAG_PROMOTION,
                 FLAG_EN_PASSANT
-            )
+            ) and flag not in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1)
             if is_quiet:
                 quiet_moves_tried.append(move)
             
