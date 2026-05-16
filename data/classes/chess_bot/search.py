@@ -1,6 +1,6 @@
 import time
 from .constants import *
-from .evaluate import evaluate, score_move, get_game_phase
+from .evaluate import evaluate, score_move, get_phase_weight
 from .move_filter import is_square_attacked
 from .move_gens import generate_all_moves
 from .GameState import GameState
@@ -8,7 +8,32 @@ from .GameState import GameState
 class TimeOutException(Exception):
     pass
 
-def quiescence_search(state: GameState, alpha, beta, current_color, search_params) -> float:
+def _probe_syzygy(state: GameState, tablebase, tb_max_pieces, ply):
+    if tablebase is None:
+        return None
+    if tb_max_pieces is None:
+        tb_max_pieces = SYZYGY_MAX_PIECES
+    if state.bitboards[OCCUPIED].bit_count() > tb_max_pieces:
+        return None
+
+    try:
+        import chess
+    except ImportError:
+        return None
+
+    try:
+        board = chess.Board(state.to_fen())
+        wdl = tablebase.probe_wdl(board)
+    except Exception:
+        return None
+
+    if wdl > 0:
+        return INFINITY - ply
+    if wdl < 0:
+        return -INFINITY + ply
+    return 0
+
+def quiescence_search(state: GameState, alpha, beta, current_color, search_params, tablebase=None, tb_max_pieces=None) -> float:
     # search_params = [nodes_searched, start_time, time_limit]
     search_params[0] += 1
     if search_params[0] & 4095 == 0:
@@ -19,6 +44,10 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
     king_board = state.bitboards[W_KING] if current_color == WHITE else state.bitboards[B_KING]
     if king_board == 0:
         return -99999
+
+    tb_score = _probe_syzygy(state, tablebase, tb_max_pieces, 0)
+    if tb_score is not None:
+        return tb_score
     
     moves_to_search = []
     
@@ -34,7 +63,7 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
     raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
     moves_to_search = [move for move in raw_moves if move[2] in (FLAG_CAPTURE, FLAG_PROMOTION, FLAG_EN_PASSANT)]
     
-    phase = get_game_phase(state)
+    phase = get_phase_weight(state)
     moves_to_search.sort(key=lambda m: score_move(m, state, phase), reverse=True)
     
     next_color = BLACK if current_color == WHITE else WHITE
@@ -45,7 +74,7 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
         
         make_move(move)
         try:
-            score = -quiescence_search(state, -beta, -alpha, next_color, search_params)
+            score = -quiescence_search(state, -beta, -alpha, next_color, search_params, tablebase, tb_max_pieces)
         finally:
             undo_move(move)
         
@@ -56,7 +85,7 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
             
     return alpha
 
-def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt, killer_moves, ply) -> float:
+def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt, killer_moves, ply, tablebase=None, tb_max_pieces=None) -> float:
     """ Search the game tree to a certain depth using negamax with alpha-beta pruning, 
     along with quiescence search at the leaf nodes, and a transposition table to store
     previously evaluated positions."""
@@ -70,6 +99,10 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
     enemy_king_board = state.bitboards[B_KING] if current_color == WHITE else state.bitboards[W_KING]
     if king_board == 0:
         return -99999 - depth 
+
+    tb_score = _probe_syzygy(state, tablebase, tb_max_pieces, ply)
+    if tb_score is not None:
+        return tb_score
     
     king_sq = (king_board & -king_board).bit_length() - 1
     enemy_king_sq = (enemy_king_board & -enemy_king_board).bit_length() - 1
@@ -109,15 +142,17 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
         state.make_null_move()
         try:
             null_move_score = -negamax(
-                    depth - 3, 
-                    state, 
-                    -beta, 
-                    -beta + 1, 
-                    enemy_color, 
-                    search_params, 
-                    tt,
-                    killer_moves,
-                    ply + 1
+                depth - 3,
+                state,
+                -beta,
+                -beta + 1,
+                enemy_color,
+                search_params,
+                tt,
+                killer_moves,
+                ply + 1,
+                tablebase,
+                tb_max_pieces
             )
             if null_move_score >= beta:
                 search_params[3] += 1  # Increment null prune count for stats
@@ -126,7 +161,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
             state.undo_null_move()  # Ensure we always undo the null move even if we time out
             
     if depth <= 0:
-        return quiescence_search(state, alpha, beta, current_color, search_params)
+        return quiescence_search(state, alpha, beta, current_color, search_params, tablebase, tb_max_pieces)
         
     moves = generate_all_moves(
         state.bitboards, 
@@ -137,7 +172,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
     
     # moves = state.get_strictly_legal_moves(current_color)
     
-    phase = get_game_phase(state)
+    phase = get_phase_weight(state)
 
     def move_order_score(move):
 
@@ -226,7 +261,9 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                     search_params,
                     tt,
                     killer_moves,
-                    ply + 1
+                    ply + 1,
+                    tablebase,
+                    tb_max_pieces
                 )
 
                 # re-search if move looks good
@@ -240,7 +277,9 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                         search_params,
                         tt,
                         killer_moves,
-                        ply + 1
+                        ply + 1,
+                        tablebase,
+                        tb_max_pieces
                     )
             else:
                 score = -negamax(
@@ -252,7 +291,9 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                     search_params, 
                     tt,
                     killer_moves,
-                    ply + 1
+                    ply + 1,
+                    tablebase,
+                    tb_max_pieces
                 )
         finally:
             undo_move(move)

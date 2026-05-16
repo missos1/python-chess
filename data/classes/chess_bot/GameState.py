@@ -3,6 +3,17 @@ from .move_filter import is_square_attacked
 from .move_gens import *
 from .precompute import ZOBRIST_PIECES, ZOBRIST_CASTLING, ZOBRIST_TURN, ZOBRIST_EN_PASSANT
 
+FEN_PIECE_BY_ID = (
+    "",  # EMPTY
+    "P", "N", "B", "R", "Q", "K",
+    "p", "n", "b", "r", "q", "k"
+)
+
+def _index_to_algebraic(index):
+    file_char = chr((index % 8) + ord("a"))
+    rank_char = str((index // 8) + 1)
+    return file_char + rank_char
+
 class GameState:
     def __init__(self, bitboards: list, pieces_array: list, castling_rights: int, en_passant_target=None, color = WHITE):
         self.bitboards = bitboards
@@ -343,3 +354,43 @@ class GameState:
             total_mat += PIECE_POINT_VALUES[piece] * count
             
         return total_mat
+
+    def to_fen(self):
+        ranks = []
+        for rank in range(7, -1, -1):
+            empty_count = 0
+            row = []
+            base = rank * 8
+            for file in range(8):
+                piece_id = self.piece_values[base + file]
+                if piece_id == EMPTY:
+                    empty_count += 1
+                    continue
+                if empty_count:
+                    row.append(str(empty_count))
+                    empty_count = 0
+                row.append(FEN_PIECE_BY_ID[piece_id])
+            if empty_count:
+                row.append(str(empty_count))
+            ranks.append("".join(row))
+
+        board_part = "/".join(ranks)
+        turn_part = "w" if self.turn_color == WHITE else "b"
+
+        castling = ""
+        if self.castling_rights & WK_RIGHT:
+            castling += "K"
+        if self.castling_rights & WQ_RIGHT:
+            castling += "Q"
+        if self.castling_rights & BK_RIGHT:
+            castling += "k"
+        if self.castling_rights & BQ_RIGHT:
+            castling += "q"
+        if not castling:
+            castling = "-"
+
+        en_passant = "-"
+        if self.en_passant_target is not None:
+            en_passant = _index_to_algebraic(self.en_passant_target)
+
+        return f"{board_part} {turn_part} {castling} {en_passant} 0 1"

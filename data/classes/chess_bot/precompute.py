@@ -131,6 +131,55 @@ def precompute_black_pawn_captures():
         captures.append(capture_board)
     return captures
 
+def precompute_file_masks():
+    masks = []
+    base_file = 0x0101010101010101
+    for file_index in range(8):
+        masks.append(base_file << file_index)
+    return masks
+
+def precompute_adjacent_file_masks():
+    file_masks = precompute_file_masks()
+    adjacent = []
+    for file_index in range(8):
+        mask = 0
+        if file_index > 0:
+            mask |= file_masks[file_index - 1]
+        if file_index < 7:
+            mask |= file_masks[file_index + 1]
+        adjacent.append(mask)
+    return adjacent
+
+def precompute_white_passed_pawn_masks():
+    file_masks = precompute_file_masks()
+    adjacent_masks = precompute_adjacent_file_masks()
+    masks = []
+    for square in range(64):
+        file_index = square & 7
+        rank_index = square >> 3
+        span_files = file_masks[file_index] | adjacent_masks[file_index]
+        if rank_index >= 7:
+            forward_mask = 0
+        else:
+            forward_mask = BOARD_MASK ^ ((1 << ((rank_index + 1) * 8)) - 1)
+        masks.append(span_files & forward_mask)
+    return masks
+
+def precompute_black_passed_pawn_masks():
+    file_masks = precompute_file_masks()
+    adjacent_masks = precompute_adjacent_file_masks()
+    masks = []
+    for square in range(64):
+        file_index = square & 7
+        rank_index = square >> 3
+        span_files = file_masks[file_index] | adjacent_masks[file_index]
+        if rank_index <= 0:
+            forward_mask = 0
+        else:
+            forward_mask = (1 << (rank_index * 8)) - 1
+        masks.append(span_files & forward_mask)
+    return masks
+
 def precomputed_knight_moves():
     moves = []
     for square in range(64):
@@ -179,3 +228,7 @@ KNIGHT_MOVES = precomputed_knight_moves()
 KING_MOVES = precomputed_king_moves()
 WHITE_PAWN_CAPTURES = precompute_white_pawn_captures()
 BLACK_PAWN_CAPTURES = precompute_black_pawn_captures()
+FILE_MASKS = precompute_file_masks()
+ADJACENT_FILE_MASKS = precompute_adjacent_file_masks()
+WHITE_PASSED_PAWN_MASKS = precompute_white_passed_pawn_masks()
+BLACK_PASSED_PAWN_MASKS = precompute_black_passed_pawn_masks()

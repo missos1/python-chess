@@ -1,6 +1,6 @@
 import time
 from .constants import *
-from .evaluate import evaluate, score_move
+from .evaluate import evaluate, score_move, get_game_phase
 from .move_filter import is_square_attacked
 from .move_gens import generate_all_moves
 from .GameState import GameState
@@ -11,7 +11,7 @@ class TimeOutException(Exception):
 def quiescence_search(state: GameState, alpha, beta, current_color, search_params) -> float:
     # search_params = [nodes_searched, start_time, time_limit]
     search_params[0] += 1
-    if search_params[0] & 2047 == 0:
+    if search_params[0] & 4095 == 0:
         if time.time() - search_params[1] > search_params[2]:
             raise TimeOutException()
     
@@ -34,7 +34,8 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
     raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
     moves_to_search = [move for move in raw_moves if move[2] in (FLAG_CAPTURE, FLAG_PROMOTION, FLAG_EN_PASSANT)]
     
-    moves_to_search.sort(key=lambda m: score_move(m, state), reverse=True)
+    phase = get_game_phase(state)
+    moves_to_search.sort(key=lambda m: score_move(m, state, phase), reverse=True)
     
     next_color = BLACK if current_color == WHITE else WHITE
     make_move = state.make_move
@@ -55,20 +56,23 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
             
     return alpha
 
-def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt) -> float:
+def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt, killer_moves, ply) -> float:
     """ Search the game tree to a certain depth using negamax with alpha-beta pruning, 
     along with quiescence search at the leaf nodes, and a transposition table to store
     previously evaluated positions."""
     search_params[0] += 1                                           # Increment nodes searched
-    if search_params[0] & 2047 == 0:                                # Check time every 2048 nodes
+    if search_params[0] & 4095 == 0:                                # Check time every 4095 nodes
         if time.time() - search_params[1] > search_params[2]:       # If we've exceeded our time limit, raise an exception to stop the search
-            raise TimeOutException()                                #
+            raise TimeOutException()                                
 
     # Check for terminal states (Checkmate or Stalemate)
     king_board = state.bitboards[W_KING] if current_color == WHITE else state.bitboards[B_KING]
+    enemy_king_board = state.bitboards[B_KING] if current_color == WHITE else state.bitboards[W_KING]
     if king_board == 0:
         return -99999 - depth 
+    
     king_sq = (king_board & -king_board).bit_length() - 1
+    enemy_king_sq = (enemy_king_board & -enemy_king_board).bit_length() - 1
     
     next_color = BLACK if current_color == WHITE else WHITE
     enemy_color = next_color
@@ -97,22 +101,26 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                 
     # Null Move Pruning: If we are not in a quiet position 
     # (i.e. there is significant material on the board), we can try skipping our move and see if the opponent has a strong response. If they do, then we know we need to search this position more deeply. If they don't, we can safely assume this position is good for us and cut off the search.
-    nmp = True if state.get_non_pawn_materials() > 2000 else False
-    is_in_check = is_square_attacked(king_sq, BLACK if current_color == WHITE else WHITE, state.bitboards)
+    not_zugzwang = True if state.get_non_pawn_materials() > 0 else False
+    is_in_check = is_square_attacked(king_sq, enemy_color, state.bitboards)
+    can_capture_enemy_king = is_square_attacked(enemy_king_sq, current_color, state.bitboards)
     
-    if nmp and not is_in_check and depth > 2:
+    if depth > 2 and not_zugzwang and not (is_in_check or can_capture_enemy_king):
         state.make_null_move()
         try:
             null_move_score = -negamax(
-                depth - 3, 
-                state, 
-                -beta, 
-                -beta + 1, 
-                BLACK if current_color == WHITE else WHITE, 
-                search_params, 
-                tt
+                    depth - 3, 
+                    state, 
+                    -beta, 
+                    -beta + 1, 
+                    enemy_color, 
+                    search_params, 
+                    tt,
+                    killer_moves,
+                    ply + 1
             )
             if null_move_score >= beta:
+                search_params[3] += 1  # Increment null prune count for stats
                 return beta
         finally:
             state.undo_null_move()  # Ensure we always undo the null move even if we time out
@@ -127,16 +135,31 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
         state.en_passant_target
     )
     
-    if tt_move is not None:
-        moves.sort(key=lambda m: float('inf') if m == tt_move else score_move(m, state), reverse=True)
-    else:
-        moves.sort(key=lambda m: score_move(m, state), reverse=True)
+    # moves = state.get_strictly_legal_moves(current_color)
+    
+    phase = get_game_phase(state)
+
+    def move_order_score(move):
+
+        if move == tt_move:
+            return 10_000_000
+
+        if move == killer_moves[ply][0]:
+            return 9_000_000
+
+        if move == killer_moves[ply][1]:
+            return 8_000_000
+
+        return score_move(move, state, phase)
+
+    moves.sort(key=move_order_score, reverse=True)
     
     make_move = state.make_move
     undo_move = state.undo_move
     
     best_score = -float('inf')
     best_move_found = None
+    move_index = 0
     
     for move in moves:
         flag = move[2]
@@ -156,23 +179,100 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
 
         make_move(move)
         try:
-            score = -negamax(
-                depth - 1, 
-                state, 
-                -beta, 
-                -alpha, 
-                next_color, 
-                search_params, 
-                tt
+            reduction = 0
+
+            is_quiet = flag not in (
+                FLAG_CAPTURE,
+                FLAG_PROMOTION,
+                FLAG_EN_PASSANT
             )
+
+            is_tt_move = (move == tt_move)
+            is_killer = (
+                move == killer_moves[ply][0] or
+                move == killer_moves[ply][1]
+            )
+
+            # LMR conditions
+            if (
+                depth >= 3 and
+                move_index >= 4 and
+                is_quiet and
+                not is_in_check and
+                not is_tt_move and
+                not is_killer
+            ):
+                enemy_king_board_after = (
+                    state.bitboards[B_KING]
+                    if current_color == WHITE
+                    else state.bitboards[W_KING]
+                )
+
+                enemy_king_sq_after = (
+                    enemy_king_board_after & -enemy_king_board_after
+                ).bit_length() - 1
+
+                if not is_square_attacked(enemy_king_sq_after, current_color, state.bitboards):
+                    reduction = 1
+
+            # reduced search
+            if reduction:
+                score = -negamax(
+                    depth - 1 - reduction,
+                    state,
+                    -alpha - 1,
+                    -alpha,
+                    enemy_color,
+                    search_params,
+                    tt,
+                    killer_moves,
+                    ply + 1
+                )
+
+                # re-search if move looks good
+                if score > alpha:
+                    score = -negamax(
+                        depth - 1,
+                        state,
+                        -beta,
+                        -alpha,
+                        enemy_color,
+                        search_params,
+                        tt,
+                        killer_moves,
+                        ply + 1
+                    )
+            else:
+                score = -negamax(
+                    depth - 1, 
+                    state, 
+                    -beta, 
+                    -alpha, 
+                    enemy_color, 
+                    search_params, 
+                    tt,
+                    killer_moves,
+                    ply + 1
+                )
         finally:
             undo_move(move)
+
+        move_index += 1
         
         if score > best_score:
             best_score = score
             best_move_found = move
             
         if score >= beta:
+            # store killer move
+            if flag not in (
+                FLAG_CAPTURE,
+                FLAG_PROMOTION,
+                FLAG_EN_PASSANT
+            ):
+                if move != killer_moves[ply][0]:
+                    killer_moves[ply][1] = killer_moves[ply][0]
+                    killer_moves[ply][0] = move
             if score < 90000 and score > -90000:
                 tt[zobrist_hash] = (depth, beta, TT_LOWER_BOUND, move)
             return beta

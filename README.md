@@ -47,7 +47,7 @@ Then run CuteChess using a random opening from that file:
 & "E:\\Workspace\\Project\\ChessAI_VNU\\Cute Chess\\cutechess-cli.exe" `
 	-engine name="NewBot" cmd="E:\\Python\\Python314\\python.exe" arg="E:\\Workspace\\Project\\ChessAI_VNU\\uci.py" arg="--package" arg="data.classes.chess_bot" dir="E:\\Workspace\\Project\\ChessAI_VNU" `
 	-engine name="OldBot" cmd="E:\\Python\\Python314\\python.exe" arg="E:\\Workspace\\Project\\ChessAI_VNU\\uci.py" arg="--package" arg="data.classes.chess_bot_v1" dir="E:\\Workspace\\Project\\ChessAI_VNU" `
-	-each proto=uci tc=5+0.1 -openings file="E:\\Workspace\\Project\\ChessAI_VNU\\openings_fen.txt" format=epd order=random -games 10 -concurrency 2
+	-each proto=uci tc=5+0.5 -openings file="E:\\Workspace\\Project\\ChessAI_VNU\\openings_fen.txt" format=epd order=random -games 10 -concurrency 2
 ```
 
 

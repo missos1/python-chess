@@ -247,7 +247,7 @@ class GameState:
         """
         self.state_history.append((self.castling_rights, None, self.zobrist_hash, self.en_passant_target))
         
-        self.zobrist_hash ^= ZOBRIST_CASTLING[self.castling_rights]
+        # self.castling_rights ^= ZOBRIST_CASTLING[self.castling_rights]
         
         if self.en_passant_target is not None:
             self.zobrist_hash ^= ZOBRIST_EN_PASSANT[self.en_passant_target % 8]

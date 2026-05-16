@@ -60,27 +60,7 @@ BOARD_MASK = 0xFFFFFFFFFFFFFFFF
 # --- PIECE SQUARE TABLES (White's Perspective) ---
 # Note: The evaluation function will automatically mirror these for Black!
 
-# PAWNS (OPENING)
-PAWN_PST_OPENING = [
-    # Rank 1
-     0,  0,  0,  0,  0,  0,  0,  0,
-    # Rank 2
-    10, 15, 15,-10,-10, 15, 15, 10,
-    # Rank 3
-    10,  0,  0, 10, 10,  0,  0, 10,
-    # Rank 4
-     5,  5, 10, 25, 25, 10,  5,  5,
-    # Rank 5
-     0,  0,  5, 15, 15,  5,  0,  0,
-    # Rank 6
-     5,  5, 10, 15, 15, 10,  5,  5,
-    # Rank 7
-    20, 20, 20, 20, 20, 20, 20, 20,
-    # Rank 8 (Indices 56-63)
-     0,  0,  0,  0,  0,  0,  0,  0
-]
-
-# PAWNS (MIDDLEGAME)
+# PAWNS (OPENING & MIDDLEGAME)
 PAWN_PST_MIDDLEGAME = [
     # Rank 1
      0,  0,  0,  0,  0,  0,  0,  0,
@@ -120,19 +100,7 @@ PAWN_PST_ENDGAME = [
      0,  0,  0,  0,  0,  0,  0,  0
 ]
 
-# KNIGHTS (OPENING)
-KNIGHT_PST_OPENING = [
-    -50,-45,-35,-30,-30,-35,-45,-50,
-    -45,-25,  0,  5,  5,  0,-25,-45,
-    -35,  0, 15, 15, 15, 15,  0,-35,
-    -30,  5, 15, 20, 20, 15,  5,-30,
-    -30,  5, 15, 20, 20, 15,  5,-30,
-    -35,  0, 10, 15, 15, 10,  0,-35,
-    -45,-25,  0,  5,  5,  0,-25,-45,
-    -50,-45,-35,-30,-30,-35,-45,-50
-]
-
-# KNIGHTS (MIDDLEGAME)
+# KNIGHTS (OPENING & MIDDLEGAME)
 KNIGHT_PST_MIDDLEGAME = [
     -50,-40,-30,-30,-30,-30,-40,-50,
     -40,-20,  0,  0,  0,  0,-20,-40,
@@ -156,19 +124,7 @@ KNIGHT_PST_ENDGAME = [
     -40,-30,-25,-25,-25,-25,-30,-40
 ]
 
-# BISHOPS (OPENING)
-BISHOP_PST_OPENING = [
-    -20,-10,-10,-10,-10,-10,-10,-20,
-    -10, 10,  5,  5,  5,  5, 10,-10,
-    -10, 10, 10, 10, 10, 10, 10,-10,
-    -10,  5, 10, 15, 15, 10,  5,-10,
-    -10,  5, 10, 15, 15, 10,  5,-10,
-    -10,  5, 10, 10, 10, 10,  5,-10,
-    -10,  0,  5,  5,  5,  5,  0,-10,
-    -20,-10,-10,-10,-10,-10,-10,-20
-]
-
-# BISHOPS (MIDDLEGAME)
+# BISHOPS (OPENING & MIDDLEGAME)
 BISHOP_PST_MIDDLEGAME = [
     -20,-10,-10,-10,-10,-10,-10,-20,
     -10,  5,  0,  0,  0,  0,  5,-10,
@@ -192,19 +148,7 @@ BISHOP_PST_ENDGAME = [
     -15, -5, -5, -5, -5, -5, -5,-15
 ]
 
-# ROOKS (OPENING)
-ROOK_PST_OPENING = [
-     0,  0,  0,  0,  0,  0,  0,  0,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-     0,  5,  5,  5,  5,  5,  5,  0,
-     0,  0,  0,  0,  0,  0,  0,  0
-]
-
-# ROOKS (MIDDLEGAME)
+# ROOKS (OPENING & MIDDLEGAME)
 ROOK_PST_MIDDLEGAME = [
      0,  0,  0,  5,  5,  0,  0,  0,
     -5,  0,  0,  0,  0,  0,  0, -5,
@@ -228,19 +172,8 @@ ROOK_PST_ENDGAME = [
      5, 10, 10, 15, 15, 10, 10,  5
 ]
 
-# QUEENS (OPENING)
-QUEEN_PST_OPENING = [
-    -20,-10,-10, -5, -5,-10,-10,-20,
-    -10,  0,  0, -5, -5,  0,  0,-10,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-     -5, -5,  0,  0,  0,  0, -5, -5,
-     -5, -5,  0,  0,  0,  0, -5, -5,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  0, -5, -5,  0,  0,-10,
-    -20,-10,-10, -5, -5,-10,-10,-20
-]
 
-# QUEENS (MIDDLEGAME)
+# QUEENS (OPENING & MIDDLEGAME)
 QUEEN_PST_MIDDLEGAME = [
     -20,-10,-10, -5, -5,-10,-10,-20,
     -10,  0,  5,  0,  0,  0,  0,-10,
@@ -264,19 +197,7 @@ QUEEN_PST_ENDGAME = [
     -10, -5, -5,  0,  0, -5, -5,-10
 ]
 
-# KING (OPENING)
-KING_PST_OPENING = [
-     30, 40, 20,  0,  0, 20, 40, 30,
-     20, 20,  0,  0,  0,  0, 20, 20,
-    -10,-20,-20,-30,-30,-20,-20,-10,
-    -20,-30,-30,-40,-40,-30,-30,-20,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30
-]
-
-# KING (MIDDLEGAME)
+# KING (OPENING & MIDDLEGAME)
 KING_PST_MIDDLEGAME = [
      20, 30, 10,  0,  0, 10, 30, 20,
      20, 20,  0,  0,  0,  0, 20, 20,
@@ -325,36 +246,41 @@ PIECE_POINT_VALUES = (
 # Dummy table for EMPTY squares (Index 0)
 EMPTY_PST = [0] * 64
 
-# Phase identifiers
-PHASE_OPENING = 0
-PHASE_MIDDLEGAME = 1
-PHASE_ENDGAME = 2
-
-# Phase thresholds (material excludes pawns and kings)
-PHASE_OPENING_MIN_MATERIAL = 5200
-PHASE_ENDGAME_MAX_MATERIAL = 2000
-
 PHASE_MATERIAL_PIECES = (
     W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN,
     B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN
 )
 
-# Replace PST_LOOKUP dictionary with a Tuple
-PST_LOOKUP_OPENING = (
-    EMPTY_PST,           # 0: EMPTY
-    PAWN_PST_OPENING,     # 1: W_PAWN
-    KNIGHT_PST_OPENING,   # 2: W_KNIGHT
-    BISHOP_PST_OPENING,   # 3: W_BISHOP
-    ROOK_PST_OPENING,     # 4: W_ROOK
-    QUEEN_PST_OPENING,    # 5: W_QUEEN
-    KING_PST_OPENING,     # 6: W_KING
-    PAWN_PST_OPENING,     # 7: B_PAWN
-    KNIGHT_PST_OPENING,   # 8: B_KNIGHT
-    BISHOP_PST_OPENING,   # 9: B_BISHOP
-    ROOK_PST_OPENING,     # 10: B_ROOK
-    QUEEN_PST_OPENING,    # 11: B_QUEEN
-    KING_PST_OPENING      # 12: B_KING
+# Tapered evaluation phase weights (opening -> endgame)
+MAX_PHASE = 24
+PHASE_PIECE_WEIGHTS = (
+    0,  # EMPTY
+    0,  # W_PAWN
+    1,  # W_KNIGHT
+    1,  # W_BISHOP
+    2,  # W_ROOK
+    4,  # W_QUEEN
+    0,  # W_KING
+    0,  # B_PAWN
+    1,  # B_KNIGHT
+    1,  # B_BISHOP
+    2,  # B_ROOK
+    4,  # B_QUEEN
+    0   # B_KING
 )
+
+# Pawn structure evaluation weights
+PAWN_DOUBLED_PENALTY = 10
+PAWN_ISOLATED_PENALTY = 10
+PAWN_CHAIN_BONUS = 10
+PAWN_UNPROTECTED_PENALTY = 5
+PAWN_PASSED_BONUS_BY_RANK = (
+    0, 5, 10, 20, 35, 60, 100, 0
+)
+
+# Scale pawn structure impact by phase (Opening, Middlegame, Endgame)
+PAWN_PHASE_MULTIPLIER_MG = 100
+PAWN_PHASE_MULTIPLIER_EG = 120
 
 PST_LOOKUP_MIDDLEGAME = (
     EMPTY_PST,             # 0: EMPTY
@@ -388,14 +314,16 @@ PST_LOOKUP_ENDGAME = (
     KING_PST_ENDGAME      # 12: B_KING
 )
 
-PST_LOOKUP_BY_PHASE = (
-    PST_LOOKUP_OPENING,
-    PST_LOOKUP_MIDDLEGAME,
-    PST_LOOKUP_ENDGAME
-)
+# Tapered evaluation uses midgame and endgame lookups only.
+PST_LOOKUP_MG = PST_LOOKUP_MIDDLEGAME
+PST_LOOKUP_EG = PST_LOOKUP_ENDGAME
 
 # Default PST lookup used for move ordering and legacy code
 PST_LOOKUP = PST_LOOKUP_MIDDLEGAME
 
 MAX_TT_SIZE = 4000000  # Maximum number of entries in the transposition table before clearing (Reduced from 4 million to save memory)
 # It never got so large in testing, but this is a safeguard against memory bloat in long games or repeated positions.
+
+# Syzygy tablebase defaults
+SYZYGY_REL_PATH = "data/syzygy"
+SYZYGY_MAX_PIECES = 5

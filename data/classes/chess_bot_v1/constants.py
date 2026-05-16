@@ -2,6 +2,11 @@
 WHITE = 'white'
 BLACK = 'black'
 
+# don't use float("inf") because for null move pruning 
+# we need to add 1 to the score, and float("inf") + 1 
+# is still float("inf"), which breaks the logic.
+INFINITY = 1000000
+
 W_PAWN   = 1
 W_KNIGHT = 2
 W_BISHOP = 3
@@ -55,29 +60,80 @@ BOARD_MASK = 0xFFFFFFFFFFFFFFFF
 # --- PIECE SQUARE TABLES (White's Perspective) ---
 # Note: The evaluation function will automatically mirror these for Black!
 
-# PAWNS: Encourage controlling the center and pushing toward promotion.
-PAWN_PST = [
-    # Rank 1 
-     0,  0,  0,  0,  0,  0,  0,  0, 
+# PAWNS (OPENING)
+PAWN_PST_OPENING = [
+    # Rank 1
+     0,  0,  0,  0,  0,  0,  0,  0,
     # Rank 2
-     5, 10, 10,-20,-20, 10, 10,  5, 
+    10, 15, 15,-10,-10, 15, 15, 10,
     # Rank 3
-     5, -5,-10,  0,  0,-10, -5,  5, 
+    10,  0,  0, 10, 10,  0,  0, 10,
     # Rank 4
-     0,  0,  0, 20, 20,  0,  0,  0, 
+     5,  5, 10, 25, 25, 10,  5,  5,
     # Rank 5
-     5,  5, 10, 25, 25, 10,  5,  5, 
+     0,  0,  5, 15, 15,  5,  0,  0,
     # Rank 6
-    10, 10, 20, 30, 30, 20, 10, 10, 
+     5,  5, 10, 15, 15, 10,  5,  5,
     # Rank 7
-    50, 50, 50, 50, 50, 50, 50, 50, 
+    20, 20, 20, 20, 20, 20, 20, 20,
     # Rank 8 (Indices 56-63)
-     0,  0,  0,  0,  0,  0,  0,  0  
+     0,  0,  0,  0,  0,  0,  0,  0
 ]
 
-# KNIGHTS: Heavily punish the edges and corners, reward the dead center.
-# Tweaked slightly downward so knights don't sacrifice themselves just to stand in the center.
-KNIGHT_PST = [
+# PAWNS (MIDDLEGAME)
+PAWN_PST_MIDDLEGAME = [
+    # Rank 1
+     0,  0,  0,  0,  0,  0,  0,  0,
+    # Rank 2
+     5, 10, 10,-20,-20, 10, 10,  5,
+    # Rank 3
+     5, -5,-10,  0,  0,-10, -5,  5,
+    # Rank 4
+     0,  0,  0, 20, 20,  0,  0,  0,
+    # Rank 5
+     5,  5, 10, 25, 25, 10,  5,  5,
+    # Rank 6
+    10, 10, 20, 30, 30, 20, 10, 10,
+    # Rank 7
+    50, 50, 50, 50, 50, 50, 50, 50,
+    # Rank 8 (Indices 56-63)
+     0,  0,  0,  0,  0,  0,  0,  0
+]
+
+# PAWNS (ENDGAME)
+PAWN_PST_ENDGAME = [
+    # Rank 1
+     0,  0,  0,  0,  0,  0,  0,  0,
+    # Rank 2
+     5, 10, 10,  0,  0, 10, 10,  5,
+    # Rank 3
+    10, 10, 15, 20, 20, 15, 10, 10,
+    # Rank 4
+    15, 15, 20, 25, 25, 20, 15, 15,
+    # Rank 5
+    20, 20, 25, 30, 30, 25, 20, 20,
+    # Rank 6
+    30, 30, 40, 50, 50, 40, 30, 30,
+    # Rank 7
+    60, 60, 60, 60, 60, 60, 60, 60,
+    # Rank 8 (Indices 56-63)
+     0,  0,  0,  0,  0,  0,  0,  0
+]
+
+# KNIGHTS (OPENING)
+KNIGHT_PST_OPENING = [
+    -50,-45,-35,-30,-30,-35,-45,-50,
+    -45,-25,  0,  5,  5,  0,-25,-45,
+    -35,  0, 15, 15, 15, 15,  0,-35,
+    -30,  5, 15, 20, 20, 15,  5,-30,
+    -30,  5, 15, 20, 20, 15,  5,-30,
+    -35,  0, 10, 15, 15, 10,  0,-35,
+    -45,-25,  0,  5,  5,  0,-25,-45,
+    -50,-45,-35,-30,-30,-35,-45,-50
+]
+
+# KNIGHTS (MIDDLEGAME)
+KNIGHT_PST_MIDDLEGAME = [
     -50,-40,-30,-30,-30,-30,-40,-50,
     -40,-20,  0,  0,  0,  0,-20,-40,
     -30,  0, 10, 10, 10, 10,  0,-30,
@@ -88,8 +144,32 @@ KNIGHT_PST = [
     -50,-40,-30,-30,-30,-30,-40,-50
 ]
 
-# BISHOPS: Reward controlling the long diagonals and staying active.
-BISHOP_PST = [
+# KNIGHTS (ENDGAME)
+KNIGHT_PST_ENDGAME = [
+    -40,-30,-25,-25,-25,-25,-30,-40,
+    -30,-15,  0,  5,  5,  0,-15,-30,
+    -25,  0, 10, 10, 10, 10,  0,-25,
+    -25,  5, 10, 15, 15, 10,  5,-25,
+    -25,  5, 10, 15, 15, 10,  5,-25,
+    -25,  0, 10, 10, 10, 10,  0,-25,
+    -30,-15,  0,  5,  5,  0,-15,-30,
+    -40,-30,-25,-25,-25,-25,-30,-40
+]
+
+# BISHOPS (OPENING)
+BISHOP_PST_OPENING = [
+    -20,-10,-10,-10,-10,-10,-10,-20,
+    -10, 10,  5,  5,  5,  5, 10,-10,
+    -10, 10, 10, 10, 10, 10, 10,-10,
+    -10,  5, 10, 15, 15, 10,  5,-10,
+    -10,  5, 10, 15, 15, 10,  5,-10,
+    -10,  5, 10, 10, 10, 10,  5,-10,
+    -10,  0,  5,  5,  5,  5,  0,-10,
+    -20,-10,-10,-10,-10,-10,-10,-20
+]
+
+# BISHOPS (MIDDLEGAME)
+BISHOP_PST_MIDDLEGAME = [
     -20,-10,-10,-10,-10,-10,-10,-20,
     -10,  5,  0,  0,  0,  0,  5,-10,
     -10, 10, 10, 10, 10, 10, 10,-10,
@@ -100,8 +180,32 @@ BISHOP_PST = [
     -20,-10,-10,-10,-10,-10,-10,-20
 ]
 
-# ROOKS: Huge bonus for reaching the 7th rank (attacking enemy pawns). Minor centralization.
-ROOK_PST = [
+# BISHOPS (ENDGAME)
+BISHOP_PST_ENDGAME = [
+    -15, -5, -5, -5, -5, -5, -5,-15,
+     -5, 10, 10, 10, 10, 10, 10, -5,
+     -5, 10, 15, 15, 15, 15, 10, -5,
+     -5, 10, 15, 20, 20, 15, 10, -5,
+     -5, 10, 15, 20, 20, 15, 10, -5,
+     -5, 10, 15, 15, 15, 15, 10, -5,
+     -5, 10, 10, 10, 10, 10, 10, -5,
+    -15, -5, -5, -5, -5, -5, -5,-15
+]
+
+# ROOKS (OPENING)
+ROOK_PST_OPENING = [
+     0,  0,  0,  0,  0,  0,  0,  0,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+     0,  5,  5,  5,  5,  5,  5,  0,
+     0,  0,  0,  0,  0,  0,  0,  0
+]
+
+# ROOKS (MIDDLEGAME)
+ROOK_PST_MIDDLEGAME = [
      0,  0,  0,  5,  5,  0,  0,  0,
     -5,  0,  0,  0,  0,  0,  0, -5,
     -5,  0,  0,  0,  0,  0,  0, -5,
@@ -112,8 +216,32 @@ ROOK_PST = [
      0,  0,  0,  0,  0,  0,  0,  0
 ]
 
-# QUEENS: Very slight positional bonuses to prevent early queen blunders.
-QUEEN_PST = [
+# ROOKS (ENDGAME)
+ROOK_PST_ENDGAME = [
+     0,  0,  5, 10, 10,  5,  0,  0,
+     0,  5,  5, 10, 10,  5,  5,  0,
+     0,  5,  5, 10, 10,  5,  5,  0,
+     0,  5,  5, 10, 10,  5,  5,  0,
+     0,  5,  5, 10, 10,  5,  5,  0,
+     5, 10, 10, 15, 15, 10, 10,  5,
+    10, 15, 15, 20, 20, 15, 15, 10,
+     5, 10, 10, 15, 15, 10, 10,  5
+]
+
+# QUEENS (OPENING)
+QUEEN_PST_OPENING = [
+    -20,-10,-10, -5, -5,-10,-10,-20,
+    -10,  0,  0, -5, -5,  0,  0,-10,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+     -5, -5,  0,  0,  0,  0, -5, -5,
+     -5, -5,  0,  0,  0,  0, -5, -5,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  0, -5, -5,  0,  0,-10,
+    -20,-10,-10, -5, -5,-10,-10,-20
+]
+
+# QUEENS (MIDDLEGAME)
+QUEEN_PST_MIDDLEGAME = [
     -20,-10,-10, -5, -5,-10,-10,-20,
     -10,  0,  5,  0,  0,  0,  0,-10,
     -10,  5,  5,  5,  5,  5,  0,-10,
@@ -124,9 +252,33 @@ QUEEN_PST = [
     -20,-10,-10, -5, -5,-10,-10,-20
 ]
 
-# KING (MIDDLEGAME): Heavy bonuses for castling squares (C1, G1). Punish moving out early.
-KING_PST = [
-     20, 30, 10,  0,  0, 10, 30, 20,  # Huge bonus for C1 (2) and G1 (6)
+# QUEENS (ENDGAME)
+QUEEN_PST_ENDGAME = [
+    -10, -5, -5,  0,  0, -5, -5,-10,
+     -5,  0,  5,  5,  5,  5,  0, -5,
+     -5,  5, 10, 10, 10, 10,  5, -5,
+      0,  5, 10, 15, 15, 10,  5,  0,
+      0,  5, 10, 15, 15, 10,  5,  0,
+     -5,  5, 10, 10, 10, 10,  5, -5,
+     -5,  0,  5,  5,  5,  5,  0, -5,
+    -10, -5, -5,  0,  0, -5, -5,-10
+]
+
+# KING (OPENING)
+KING_PST_OPENING = [
+     30, 40, 20,  0,  0, 20, 40, 30,
+     20, 20,  0,  0,  0,  0, 20, 20,
+    -10,-20,-20,-30,-30,-20,-20,-10,
+    -20,-30,-30,-40,-40,-30,-30,-20,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30
+]
+
+# KING (MIDDLEGAME)
+KING_PST_MIDDLEGAME = [
+     20, 30, 10,  0,  0, 10, 30, 20,
      20, 20,  0,  0,  0,  0, 20, 20,
     -10,-20,-20,-20,-20,-20,-20,-10,
     -20,-30,-30,-40,-40,-30,-30,-20,
@@ -134,6 +286,18 @@ KING_PST = [
     -30,-40,-40,-50,-50,-40,-40,-30,
     -30,-40,-40,-50,-50,-40,-40,-30,
     -30,-40,-40,-50,-50,-40,-40,-30
+]
+
+# KING (ENDGAME)
+KING_PST_ENDGAME = [
+    -50,-30,-20,-10,-10,-20,-30,-50,
+    -30,-10,  0, 10, 10,  0,-10,-30,
+    -20,  0, 20, 30, 30, 20,  0,-20,
+    -10, 10, 30, 40, 40, 30, 10,-10,
+    -10, 10, 30, 40, 40, 30, 10,-10,
+    -20,  0, 20, 30, 30, 20,  0,-20,
+    -30,-10,  0, 10, 10,  0,-10,-30,
+    -50,-30,-20,-10,-10,-20,-30,-50
 ]
 
 # --- PIECE IDs (For the 1D Hybrid piece_array) ---
@@ -161,22 +325,77 @@ PIECE_POINT_VALUES = (
 # Dummy table for EMPTY squares (Index 0)
 EMPTY_PST = [0] * 64
 
-# Replace PST_LOOKUP dictionary with a Tuple
-PST_LOOKUP = (
-    EMPTY_PST,   # 0: EMPTY
-    PAWN_PST,    # 1: W_PAWN
-    KNIGHT_PST,  # 2: W_KNIGHT
-    BISHOP_PST,  # 3: W_BISHOP
-    ROOK_PST,    # 4: W_ROOK
-    QUEEN_PST,   # 5: W_QUEEN
-    KING_PST,    # 6: W_KING
-    PAWN_PST,    # 7: B_PAWN
-    KNIGHT_PST,  # 8: B_KNIGHT
-    BISHOP_PST,  # 9: B_BISHOP
-    ROOK_PST,    # 10: B_ROOK
-    QUEEN_PST,   # 11: B_QUEEN
-    KING_PST     # 12: B_KING
+# Phase identifiers
+PHASE_OPENING = 0
+PHASE_MIDDLEGAME = 1
+PHASE_ENDGAME = 2
+
+# Phase thresholds (material excludes pawns and kings)
+PHASE_OPENING_MIN_MATERIAL = 5200
+PHASE_ENDGAME_MAX_MATERIAL = 2000
+
+PHASE_MATERIAL_PIECES = (
+    W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN,
+    B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN
 )
+
+# Replace PST_LOOKUP dictionary with a Tuple
+PST_LOOKUP_OPENING = (
+    EMPTY_PST,           # 0: EMPTY
+    PAWN_PST_OPENING,     # 1: W_PAWN
+    KNIGHT_PST_OPENING,   # 2: W_KNIGHT
+    BISHOP_PST_OPENING,   # 3: W_BISHOP
+    ROOK_PST_OPENING,     # 4: W_ROOK
+    QUEEN_PST_OPENING,    # 5: W_QUEEN
+    KING_PST_OPENING,     # 6: W_KING
+    PAWN_PST_OPENING,     # 7: B_PAWN
+    KNIGHT_PST_OPENING,   # 8: B_KNIGHT
+    BISHOP_PST_OPENING,   # 9: B_BISHOP
+    ROOK_PST_OPENING,     # 10: B_ROOK
+    QUEEN_PST_OPENING,    # 11: B_QUEEN
+    KING_PST_OPENING      # 12: B_KING
+)
+
+PST_LOOKUP_MIDDLEGAME = (
+    EMPTY_PST,             # 0: EMPTY
+    PAWN_PST_MIDDLEGAME,    # 1: W_PAWN
+    KNIGHT_PST_MIDDLEGAME,  # 2: W_KNIGHT
+    BISHOP_PST_MIDDLEGAME,  # 3: W_BISHOP
+    ROOK_PST_MIDDLEGAME,    # 4: W_ROOK
+    QUEEN_PST_MIDDLEGAME,   # 5: W_QUEEN
+    KING_PST_MIDDLEGAME,    # 6: W_KING
+    PAWN_PST_MIDDLEGAME,    # 7: B_PAWN
+    KNIGHT_PST_MIDDLEGAME,  # 8: B_KNIGHT
+    BISHOP_PST_MIDDLEGAME,  # 9: B_BISHOP
+    ROOK_PST_MIDDLEGAME,    # 10: B_ROOK
+    QUEEN_PST_MIDDLEGAME,   # 11: B_QUEEN
+    KING_PST_MIDDLEGAME     # 12: B_KING
+)
+
+PST_LOOKUP_ENDGAME = (
+    EMPTY_PST,           # 0: EMPTY
+    PAWN_PST_ENDGAME,     # 1: W_PAWN
+    KNIGHT_PST_ENDGAME,   # 2: W_KNIGHT
+    BISHOP_PST_ENDGAME,   # 3: W_BISHOP
+    ROOK_PST_ENDGAME,     # 4: W_ROOK
+    QUEEN_PST_ENDGAME,    # 5: W_QUEEN
+    KING_PST_ENDGAME,     # 6: W_KING
+    PAWN_PST_ENDGAME,     # 7: B_PAWN
+    KNIGHT_PST_ENDGAME,   # 8: B_KNIGHT
+    BISHOP_PST_ENDGAME,   # 9: B_BISHOP
+    ROOK_PST_ENDGAME,     # 10: B_ROOK
+    QUEEN_PST_ENDGAME,    # 11: B_QUEEN
+    KING_PST_ENDGAME      # 12: B_KING
+)
+
+PST_LOOKUP_BY_PHASE = (
+    PST_LOOKUP_OPENING,
+    PST_LOOKUP_MIDDLEGAME,
+    PST_LOOKUP_ENDGAME
+)
+
+# Default PST lookup used for move ordering and legacy code
+PST_LOOKUP = PST_LOOKUP_MIDDLEGAME
 
 MAX_TT_SIZE = 4000000  # Maximum number of entries in the transposition table before clearing (Reduced from 4 million to save memory)
 # It never got so large in testing, but this is a safeguard against memory bloat in long games or repeated positions.

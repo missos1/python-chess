@@ -1,3 +1,4 @@
+import os
 import time
 from .GameState import *
 from .constants import *
@@ -5,18 +6,50 @@ from .evaluate import *
 from .search import negamax, TimeOutException
 
 class Bot:
-    def __init__(self, color=WHITE, time_limit=6, verbose=True):
+    def __init__(self, color=WHITE, time_limit=6, verbose=True, syzygy_path=None, syzygy_max_pieces=SYZYGY_MAX_PIECES, enable_syzygy=True):
         self.color = color
         self.time_limit = time_limit
         self.verbose = verbose
         self.nodes_searched = 0
         self.start_time = 0
+
+        self.syzygy_max_pieces = syzygy_max_pieces
+        self.syzygy_path = syzygy_path or SYZYGY_REL_PATH
+        self.tablebase = None
+        if enable_syzygy:
+            self._init_syzygy()
         
         # TT stores {hash: (depth, score, flag, best_move)}
         # flag: TT_EXACT, TT_UPPER_BOUND, or TT_LOWER_BOUND
         self.transposition_table = {}
         # killer moves [ply][0/1]
         self.killer_moves = [[None, None] for _ in range(64)]
+
+    def _init_syzygy(self):
+        try:
+            import chess.syzygy
+        except ImportError:
+            return
+
+        path = self.syzygy_path
+        if not os.path.isabs(path):
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+            path = os.path.join(repo_root, path)
+
+        if not os.path.isdir(path):
+            return
+
+        try:
+            self.tablebase = chess.syzygy.open_tablebase(path)
+        except Exception:
+            self.tablebase = None
+
+    def close(self):
+        if self.tablebase is not None:
+            try:
+                self.tablebase.close()
+            finally:
+                self.tablebase = None
 
     def get_best_move(self, state, max_depth=1000) -> tuple[int, int, int] | None:
         self.nodes_searched = 0
@@ -32,7 +65,7 @@ class Bot:
         if not legal_moves:
             return None
             
-        phase = get_game_phase(state)
+        phase = get_phase_weight(state)
         legal_moves.sort(key=lambda m: score_move(m, state, phase), reverse=True)
         
         null_prune_times = 0
@@ -56,7 +89,19 @@ class Bot:
                 for move in legal_moves:
                     state.make_move(move)
                     enemy_color = BLACK if self.color == WHITE else WHITE
-                    score = -negamax(current_depth - 1, state, -beta, -alpha, enemy_color, search_params, tt, self.killer_moves, 1)
+                    score = -negamax(
+                        current_depth - 1,
+                        state,
+                        -beta,
+                        -alpha,
+                        enemy_color,
+                        search_params,
+                        tt,
+                        self.killer_moves,
+                        1,
+                        self.tablebase,
+                        self.syzygy_max_pieces
+                    )
                     state.undo_move(move)
                     
                     if score > alpha:
