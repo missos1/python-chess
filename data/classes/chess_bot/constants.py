@@ -42,9 +42,12 @@ FLAG_QUIET = 0
 FLAG_CAPTURE = 1
 FLAG_CASTLE_KS = 2
 FLAG_CASTLE_QS = 3
-FLAG_PROMOTION = 4
-FLAG_DOUBLE_PAWN = 5
-FLAG_EN_PASSANT = 6
+FLAG_DOUBLE_PAWN = 4
+FLAG_EN_PASSANT = 5
+FLAG_PROMOTION_Q = 6
+FLAG_PROMOTION_R = 7
+FLAG_PROMOTION_B = 8
+FLAG_PROMOTION_N = 9
 
 # Transposition Table Flags
 TT_EXACT = 0
@@ -182,6 +185,45 @@ PST_LOOKUP = (
     QUEEN_PST,   # 11: B_QUEEN
     KING_PST     # 12: B_KING
 )
+
+START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+FEN_CHAR_TO_PIECE = {
+    "P": W_PAWN,
+    "N": W_KNIGHT,
+    "B": W_BISHOP,
+    "R": W_ROOK,
+    "Q": W_QUEEN,
+    "K": W_KING,
+    "p": B_PAWN,
+    "n": B_KNIGHT,
+    "b": B_BISHOP,
+    "r": B_ROOK,
+    "q": B_QUEEN,
+    "k": B_KING,
+}
+
+PIECE_TO_FEN_CHAR = {
+    W_PAWN: "P",
+    W_KNIGHT: "N",
+    W_BISHOP: "B",
+    W_ROOK: "R",
+    W_QUEEN: "Q",
+    W_KING: "K",
+    B_PAWN: "p",
+    B_KNIGHT: "n",
+    B_BISHOP: "b",
+    B_ROOK: "r",
+    B_QUEEN: "q",
+    B_KING: "k",
+}
+
+PROMOTION_SUFFIX_TO_FLAG = {
+    "q": FLAG_PROMOTION_Q,
+    "r": FLAG_PROMOTION_R,
+    "b": FLAG_PROMOTION_B,
+    "n": FLAG_PROMOTION_N,
+}
 
 MAX_TT_SIZE = 4000000  # Maximum number of entries in the transposition table before clearing (Reduced from 4 million to save memory)
 # It never got so large in testing, but this is a safeguard against memory bloat in long games or repeated positions.

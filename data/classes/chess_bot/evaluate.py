@@ -50,7 +50,7 @@ def score_move(move, state):
     score = 0
     
     # 1. SCORE CAPTURES (Highest Priority)
-    if flag == FLAG_CAPTURE or flag == FLAG_PROMOTION or flag == FLAG_EN_PASSANT: # Assuming captures can promote
+    if flag == FLAG_CAPTURE or flag in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1) or flag == FLAG_EN_PASSANT: # Assuming captures can promote
         victim = state.piece_values[target] if flag != FLAG_EN_PASSANT else (W_PAWN if piece_moving == B_PAWN else B_PAWN)
         attacker = piece_moving
         # MVV-LVA: 1,000,000 ensures captures are ALWAYS searched before quiet moves but behind tt move

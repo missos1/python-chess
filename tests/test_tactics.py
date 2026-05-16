@@ -2,7 +2,6 @@ import unittest
 from data.classes.chess_bot.constants import *
 from data.classes.chess_bot.GameState import GameState
 from data.classes.chess_bot.Bot import Bot
-from data.classes.Board import Board
 from data.classes.chess_bot.move_gens import *
 from tests.constants_for_tests import *
 

@@ -8,10 +8,12 @@ from .GameState import GameState
 class TimeOutException(Exception):
     pass
 
-def quiescence_search(state: GameState, alpha, beta, current_color, search_params) -> float:
+def quiescence_search(state: GameState, alpha, beta, current_color, search_params, stop_event=None) -> float:
     # search_params = [nodes_searched, start_time, time_limit]
     search_params[0] += 1
     if search_params[0] & 4095 == 0:
+        if stop_event is not None and stop_event.is_set():
+            raise TimeOutException()
         if time.time() - search_params[1] > search_params[2]:
             raise TimeOutException()
     
@@ -36,7 +38,8 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
             alpha = stand_pat
         
     raw_moves = generate_all_moves(state.bitboards, current_color, state.castling_rights, state.en_passant_target)
-    moves_to_search = [move for move in raw_moves if move[2] in (FLAG_CAPTURE, FLAG_PROMOTION, FLAG_EN_PASSANT)]
+    moves_to_search = [move for move in raw_moves if move[2] in 
+                       (FLAG_CAPTURE, range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1), FLAG_EN_PASSANT)]
     
     moves_to_search.sort(key=lambda m: score_move(m, state), reverse=True)
     
@@ -66,7 +69,7 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
                     continue
         make_move(move)
         try:
-            score = -quiescence_search(state, -beta, -alpha, next_color, search_params)
+            score = -quiescence_search(state, -beta, -alpha, next_color, search_params, stop_event)
         finally:
             undo_move(move)
         
@@ -77,12 +80,14 @@ def quiescence_search(state: GameState, alpha, beta, current_color, search_param
             
     return alpha
 
-def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt, killer_moves, history_table, ply) -> float:
+def negamax(depth, state: GameState, alpha, beta, current_color, search_params, tt, killer_moves, history_table, ply, stop_event=None) -> float:
     """ Search the game tree to a certain depth using negamax with alpha-beta pruning, 
     along with quiescence search at the leaf nodes, and a transposition table to store
     previously evaluated positions."""
     search_params[0] += 1                                           # Increment nodes searched
     if search_params[0] & 4095 == 0:                                # Check time every 4095 nodes
+        if stop_event is not None and stop_event.is_set():
+            raise TimeOutException()
         if time.time() - search_params[1] > search_params[2]:       # If we've exceeded our time limit, raise an exception to stop the search
             raise TimeOutException()                                
 
@@ -273,7 +278,8 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                     tt,
                     killer_moves,
                     history_table,
-                    ply + 1
+                    ply + 1,
+                    stop_event
                 )
 
                 # re-search if move looks good
@@ -288,7 +294,8 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                         tt,
                         killer_moves,
                         history_table,
-                        ply + 1
+                        ply + 1,
+                        stop_event
                     )
             else:
                 score = -negamax(
@@ -301,11 +308,14 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
                     tt,
                     killer_moves,
                     history_table,
-                    ply + 1
+                    ply + 1,
+                    stop_event
                 )
         finally:
             undo_move(move)
 
+        move_index += 1
+        
         move_index += 1
         
         if score > best_score:
@@ -331,11 +341,7 @@ def negamax(depth, state: GameState, alpha, beta, current_color, search_params, 
 
                 
             # store killer move
-            if flag not in (
-                FLAG_CAPTURE,
-                FLAG_PROMOTION,
-                FLAG_EN_PASSANT
-            ):
+            if flag not in (FLAG_CAPTURE, FLAG_EN_PASSANT) and flag not in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
                 if move != killer_moves[ply][0]:
                     killer_moves[ply][1] = killer_moves[ply][0]
                     killer_moves[ply][0] = move

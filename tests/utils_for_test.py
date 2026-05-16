@@ -49,8 +49,14 @@ def divide(state, depth, current_color, dictionary):
         move_str = index_to_algebraic(source) + index_to_algebraic(target)
         
         # If it was a promotion, you might want to add the piece letter (e.g. e7e8q)
-        if flag == FLAG_PROMOTION:
+        if flag == FLAG_PROMOTION_Q:
             move_str += "q" # Simplified for printing
+        elif flag == FLAG_PROMOTION_R:
+            move_str += "r"
+        elif flag == FLAG_PROMOTION_B:
+            move_str += "b"
+        elif flag == FLAG_PROMOTION_N:
+            move_str += "n"
             
         dictionary[move_str] = branch_nodes
         total_nodes += branch_nodes

@@ -36,6 +36,7 @@ class GameState:
         
         piece_moved = self.piece_values[source]
         captured_piece = self.piece_values[target]
+        promotion_piece = -1
         
         # 1. SAVE THE HISTORY
         # Push castling rights and the victim so we can restore them later
@@ -74,6 +75,23 @@ class GameState:
             else:
                 self.en_passant_target = target + 8
             self.zobrist_hash ^= ZOBRIST_EN_PASSANT[self.en_passant_target % 8]
+
+        elif flag in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
+            if flag == FLAG_PROMOTION_Q:
+                promotion_piece = W_QUEEN if piece_moved == W_PAWN else B_QUEEN
+            elif flag == FLAG_PROMOTION_R:
+                promotion_piece = W_ROOK if piece_moved == W_PAWN else B_ROOK
+            elif flag == FLAG_PROMOTION_B:
+                promotion_piece = W_BISHOP if piece_moved == W_PAWN else B_BISHOP
+            elif flag == FLAG_PROMOTION_N:
+                promotion_piece = W_KNIGHT if piece_moved == W_PAWN else B_KNIGHT
+                
+            self.bitboards[piece_moved] ^= (1 << target) 
+            self.zobrist_hash ^= ZOBRIST_PIECES[piece_moved][target] # Remove Pawn from hatch
+
+            self.bitboards[promotion_piece] ^= (1 << target)
+            self.piece_values[target] = promotion_piece
+            self.zobrist_hash ^= ZOBRIST_PIECES[promotion_piece][target] # Add promoted piece
                 
         elif flag == FLAG_EN_PASSANT:
             victim_sq = target - 8 if piece_moved == W_PAWN else target + 8
@@ -84,20 +102,6 @@ class GameState:
             self.piece_values[victim_sq] = EMPTY
             self.zobrist_hash ^= ZOBRIST_PIECES[victim_piece][victim_sq]
             
-        elif flag == FLAG_PROMOTION:
-            # Delete the Pawn we just moved to the 8th/1st rank
-            self.bitboards[piece_moved] ^= (1 << target) 
-            self.zobrist_hash ^= ZOBRIST_PIECES[piece_moved][target] # Remove Pawn from hatch
-            
-            # Spawn the Queen and update the piece array
-            if piece_moved == W_PAWN:
-                self.bitboards[W_QUEEN] ^= (1 << target)
-                self.piece_values[target] = W_QUEEN
-                self.zobrist_hash ^= ZOBRIST_PIECES[W_QUEEN][target] # Add Queen
-            else:
-                self.bitboards[B_QUEEN] ^= (1 << target)
-                self.piece_values[target] = B_QUEEN
-                self.zobrist_hash ^= ZOBRIST_PIECES[B_QUEEN][target] # Add Queen
 
         elif flag == FLAG_CASTLE_KS:
             if target == 6: # White O-O
@@ -127,6 +131,7 @@ class GameState:
                 self.zobrist_hash ^= ZOBRIST_PIECES[B_ROOK][56]
                 self.zobrist_hash ^= ZOBRIST_PIECES[B_ROOK][59]
 
+        
         # King moves: lose both rights
         if piece_moved == W_KING:
             self.castling_rights &= ~(WK_RIGHT | WQ_RIGHT)
@@ -180,9 +185,7 @@ class GameState:
         piece_moved = self.piece_values[target]
         
         # 2. REVERT SPECIAL FLAGS (Before standard reversion)
-        if flag == FLAG_PROMOTION:
-            # Kill the Queen we spawned
-            
+        if flag in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1):
             self.bitboards[piece_moved] ^= (1 << target) 
             
             # Re-assign piece_moved to be a Pawn
@@ -222,15 +225,13 @@ class GameState:
             self.bitboards[victim_piece] ^= (1 << victim_sq)
             captured_piece = EMPTY # Prevent the lower capture logic from restoring a piece at 'target'
 
-        # 3. REVERT STANDARD BITBOARD TELEPORTATION (XOR)
-        # Move the piece backwards from target to source
         self.bitboards[piece_moved] ^= (1 << target) | (1 << source)
         
         # If there was a capture, resurrect the victim!
         if captured_piece != EMPTY:
             self.bitboards[captured_piece] ^= (1 << target)
 
-        # 4. REVERT THE PIECE ARRAY
+        # Restore the piece values on the source and target squares
         self.piece_values[source] = piece_moved
         self.piece_values[target] = captured_piece
         self.turn_color = BLACK if self.turn_color == WHITE else WHITE
@@ -321,7 +322,7 @@ class GameState:
         
         for move in raw_moves:
             _, _, flag = move
-            if flag == FLAG_CAPTURE or flag == FLAG_PROMOTION or flag == FLAG_EN_PASSANT:
+            if flag == FLAG_CAPTURE or flag in range(FLAG_PROMOTION_Q, FLAG_PROMOTION_N + 1)  or flag == FLAG_EN_PASSANT:
                 make_move(move)
                 
                 king_board = bitboards[W_KING] if color == WHITE else bitboards[B_KING]
